@@ -1,6 +1,6 @@
 {application, limitless,
- [{description, "An OTP application"},
-  {vsn, "0.1.0"},
+ [{description, "An OTP application to implement a rate-limiter"},
+  {vsn, "0.0.0"},
   {registered, []},
   {mod, { limitless_app, []}},
   {applications,

@@ -22,7 +22,7 @@
 
 -author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
 
--behaviour(limitless).
+-behaviour(limitless_backend).
 
 -export([
   handle_bulk_read/2,
@@ -38,7 +38,7 @@
 
 %% Types
 
--type appctx()    :: #{pool => atom()}.
+-type appctx()    :: #{pool => atom(), table => atom()}.
 -type id()        :: limitless:id().
 -type limit()     :: limitless:limit().
 -type objectid()  :: limitless:objectid().
@@ -53,7 +53,7 @@ handle_next_id(_) ->
   Id = list_to_binary(uuid:to_string(uuid:uuid4())),
   {ok, Id}.
 
--spec handle_create(limit(), appctx()) -> ok | {error, term()}.
+-spec handle_create(limit(), appctx()) -> {ok, limit()} | {error, term()}.
 handle_create(Limit, #{pool := Pool, table := Table}) ->
   mongopool_app:insert(Pool, Table, Limit),
   {ok, Limit}.

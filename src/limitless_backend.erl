@@ -15,10 +15,10 @@
 %%% along with this software; if not, write to the Free Software Foundation,
 %%% Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 %%%
-%%% @doc limitless API
+%%% @doc limitless API backend.
 %%% @end
 
--module(limitless).
+-module(limitless_backend).
 
 -author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
 

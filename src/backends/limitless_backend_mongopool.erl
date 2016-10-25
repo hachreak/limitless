@@ -58,7 +58,7 @@ handle_create(Limit, #{pool := Pool, table := Table}) ->
   mongopool_app:insert(Pool, Table, Limit),
   {ok, Limit}.
 
--spec handle_init(proplist()) -> appctx().
+-spec handle_init(proplist()) -> {ok, appctx()}.
 handle_init(Configs) ->
   application:ensure_all_started(mongopool),
   Pool = limitless_utils:get_or_fail(pool, Configs),
@@ -137,7 +137,7 @@ handle_reset(Id, Expiry, Current, #{pool := Pool, table := Table}) ->
 %% Private functions
 
 
--spec get(map(), appctx()) -> list(limit()).
+-spec get(tuple(), appctx()) -> list(limit()).
 get(Query, #{pool := Pool, table := Table}) ->
   Cursor = mongopool_app:find(Pool, Table, Query),
   Limits = mc_cursor:take(Cursor, infinity),

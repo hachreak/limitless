@@ -62,7 +62,7 @@
 -callback handle_bulk_read(
       objectid(), operator(), timestamp(), appctx()) -> list(limit()).
 
--callback handle_create(limit(), appctx()) -> ok | {error, term()}.
+-callback handle_create(limit(), appctx()) -> {ok, limit()} | {error, term()}.
 
 -callback handle_delete(id(), appctx()) -> ok | {error, term()}.
 
@@ -70,7 +70,7 @@
 
 -callback handle_inc(objectid(), appctx()) -> ok.
 
--callback handle_init(proplist()) -> appctx().
+-callback handle_init(proplist()) -> {ok, appctx()}.
 
 -callback handle_next_id(appctx()) -> {ok, id()} | {error, term()}.
 
@@ -92,7 +92,7 @@ next_id(#{backend := Backend, backendctx := BackendCtx}) ->
 
 -spec create(
     id(), objectid(), non_neg_integer(), non_neg_integer(), appctx()) ->
-      {ok, limit()}.
+      {ok, limit()} | {error, term()}.
 create(Id, ObjectId, Frequency, MaxRequests,
        #{backend := Backend, backendctx := BackendCtx}) ->
   Limit =  #{

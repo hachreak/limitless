@@ -1,0 +1,12 @@
+app:
+  build: .
+  command: /var/www/run-tests.sh
+  volumes:
+    - .:/var/www:rw
+  links:
+    - mongo:db
+mongo:
+  image: mongo:3.0.4
+  ports:
+    - "27017:27017"
+  command: --smallfiles --rest --dbpath /data/db

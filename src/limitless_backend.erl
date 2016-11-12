@@ -162,4 +162,5 @@ timestamp_to_gregorian_seconds(Timestamp) ->
 % @end
 -spec gregorian_second2timestamp(non_neg_integer()) -> timestamp().
 gregorian_second2timestamp(Seconds) ->
-  {Seconds div 1000000, Seconds rem 1000000, 0}.
+  FixSeconds = Seconds - 62167219200,
+  {FixSeconds div 1000000, FixSeconds rem 1000000, 0}.

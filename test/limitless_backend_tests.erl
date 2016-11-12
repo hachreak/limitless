@@ -72,6 +72,13 @@ fixture_limit_3() ->
   MaxRequests = 20,
   {Id, ObjectId, Frequency, MaxRequests}.
 
+fixture_expired_limit_4() ->
+  Id = <<"limit-4">>,
+  ObjectId = <<"obj-1">>,
+  Frequency = 1,
+  MaxRequests = 10,
+  {Id, ObjectId, Frequency, MaxRequests}.
+
 create_test_() ->
   {setup,
     fun mongo_start/0,
@@ -180,14 +187,18 @@ is_reached_test_() ->
           limitless_backend:reset_expired(ObjectId1, AppCtx),
           limitless_backend:reset_expired(ObjectId3, AppCtx),
           % check if is reached (false)
-          ?assertEqual(false, limitless_backend:is_reached(ObjectId1, AppCtx)),
-          ?assertEqual(false, limitless_backend:is_reached(ObjectId3, AppCtx)),
+          ?assertMatch({false, _},
+                       limitless_backend:is_reached(ObjectId1, AppCtx)),
+          ?assertMatch({false, _},
+                       limitless_backend:is_reached(ObjectId3, AppCtx)),
           % reach the limit for Id3
           lists:foreach(fun(_) ->
               limitless_backend:inc(ObjectId3, AppCtx)
             end, lists:seq(1, MaxRequests3 + 1)),
-          ?assertEqual(false, limitless_backend:is_reached(ObjectId1, AppCtx)),
-          ?assertEqual(true, limitless_backend:is_reached(ObjectId3, AppCtx))
+          ?assertMatch({false, _},
+                       limitless_backend:is_reached(ObjectId1, AppCtx)),
+          ?assertMatch({true, _},
+                       limitless_backend:is_reached(ObjectId3, AppCtx))
         end
       ]
     end
@@ -199,7 +210,8 @@ reset_expired_test_() ->
     fun mongo_stop/1,
     fun(AppCtx) -> [
         fun() ->
-          {Id1, ObjectId1, Frequency1, MaxRequests1} = fixture_limit_1(),
+          {Id1, ObjectId1, Frequency1,
+           MaxRequests1} = fixture_expired_limit_4(),
           {Id3, ObjectId3, Frequency3, MaxRequests3} = fixture_limit_3(),
           % create limits
           {ok, _} = limitless_backend:create(
@@ -218,7 +230,10 @@ reset_expired_test_() ->
                                       ObjectId3, AppCtx),
           % reset timers after 3 seconds
           timer:sleep(3000),
+          % this is resetted
           limitless_backend:reset_expired(ObjectId1, AppCtx),
+          % this is NOT resetted
+          limitless_backend:reset_expired(ObjectId3, AppCtx),
           % check db
           [#{<<"expiry">> := {_, Sec1After, _},
              <<"current">> := 0}] = limitless_backend:bulk_read(
@@ -226,8 +241,9 @@ reset_expired_test_() ->
           [#{<<"expiry">> := {_, Sec3After, _},
              <<"current">> := 1}] = limitless_backend:bulk_read(
                                       ObjectId3, AppCtx),
-          [Limit3] = limitless_backend:bulk_read(ObjectId3, AppCtx),
+          % check is resetted
           ?assertEqual(true, Sec1 < Sec1After),
+          % check is NOT resetted
           ?assertEqual(Sec3, Sec3After)
         end
       ]
@@ -240,3 +256,40 @@ next_id_test() ->
   ?assertEqual(
     erlang:length(Ids),
     erlang:length(sets:to_list(sets:from_list(Ids)))).
+
+extra_info_test_() ->
+  {setup,
+    fun mongo_start/0,
+    fun mongo_stop/1,
+    fun(AppCtx) -> [
+        fun() ->
+          {Id1, ObjectId1, Frequency1, MaxRequests1} = fixture_limit_1(),
+          {Id3, ObjectId3, Frequency3, MaxRequests3} = fixture_limit_3(),
+          % create limits
+          {ok, _} = limitless_backend:create(
+                    Id1, ObjectId1, Frequency1, MaxRequests1, AppCtx),
+          {ok, _} = limitless_backend:create(
+                    Id3, ObjectId3, Frequency3, MaxRequests3, AppCtx),
+          timer:sleep(1000),
+          lists:foreach(fun(Index) ->
+              % increment counters
+              limitless_backend:inc(ObjectId1, AppCtx),
+              check_info(ObjectId1, Frequency1, Index, AppCtx),
+              check_info(ObjectId3, Frequency3, MaxRequests3, AppCtx)
+            end, lists:seq(MaxRequests1 - 1, 0, -1)),
+          limitless_backend:inc(ObjectId1, AppCtx),
+          {true, _} = limitless_backend:is_reached(ObjectId1, AppCtx),
+          {false, _} = limitless_backend:is_reached(ObjectId3, AppCtx),
+          ok
+        end
+      ]
+    end
+  }.
+
+%% Private functions
+check_info(ObjectId, Frequency, Count, AppCtx) ->
+  % check is reached
+  {false, Limits} = limitless_backend:is_reached(ObjectId, AppCtx),
+  % and looks inside extra info
+  [{false, Count, Frequency1Info}] = limitless_backend:extra_info(Limits),
+  ?assertEqual(true, Frequency1Info < Frequency).

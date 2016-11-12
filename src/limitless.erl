@@ -29,8 +29,9 @@
 
 %% Types
 
--type appctx()   :: limitless_backend:appctx().
--type objectid() :: limitless_backend:objectid().
+-type appctx()     :: limitless_backend:appctx().
+-type limit_info() :: limitless_backend:limit_info().
+-type objectid()   :: limitless_backend:objectid().
 
 
 %%====================================================================
@@ -41,11 +42,13 @@
 init() ->
   limitless_backend:init().
 
--spec is_reached(objectid(), appctx()) -> boolean().
+-spec is_reached(objectid(), appctx()) -> {boolean(), list(limit_info())}.
 is_reached(ObjectId, AppCtx) ->
   limitless_backend:reset_expired(ObjectId, AppCtx),
   limitless_backend:inc(ObjectId, AppCtx),
-  limitless_backend:is_reached(ObjectId, AppCtx).
+  {IsReached, Limits} = limitless_backend:is_reached(ObjectId, AppCtx),
+  ExtraInfo = limitless_backend:extra_info(Limits),
+  {IsReached, ExtraInfo}.
 
 %%====================================================================
 %% Internal functions

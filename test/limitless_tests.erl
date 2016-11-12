@@ -89,13 +89,21 @@ is_reached_test_() ->
           {ok, _} = limitless_backend:create(
                     Id3, ObjectId3, Frequency3, MaxRequests3, AppCtx),
           % reach the limit for Id1
-          lists:foreach(fun(_) ->
-              ?assertEqual(false, limitless:is_reached(ObjectId1, AppCtx))
-            end, lists:seq(1, MaxRequests1 + 1)),
-          ?assertEqual(true, limitless:is_reached(ObjectId1, AppCtx)),
-          ?assertEqual(false, limitless:is_reached(ObjectId3, AppCtx)),
-          % check limit of objectid that doesn't exists
-          ?assertEqual(false, limitless:is_reached(<<"doesnt-exist">>, AppCtx))
+          % limitless:is_reached(ObjectId1, AppCtx),
+          timer:sleep(1000),
+          lists:foreach(fun(Index) ->
+              Req1 = MaxRequests1 - Index,
+              Req2 = MaxRequests2 - Index,
+              {false, [{false, Req1, Frequency1Info}, {false, Req2, Frequency2Info}]} = limitless:is_reached(ObjectId1, AppCtx),
+              ?assertEqual(true, Frequency1Info < Frequency1),
+              ?assertEqual(true, Frequency2Info < Frequency2)
+            end, lists:seq(1, MaxRequests1)),
+          Req2 = MaxRequests2 - MaxRequests1 - 1,
+          {true, [{true, -1, _}, {false, Req2, _}]} = limitless:is_reached(ObjectId1, AppCtx),
+          ?assertMatch({false, _}, limitless:is_reached(ObjectId3, AppCtx)),
+          % check limit of a objectid that doesn't exists
+          ?assertMatch({false, _}, limitless:is_reached(
+                                     <<"doesnt-exist">>, AppCtx))
         end
       ]
     end

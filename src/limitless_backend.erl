@@ -29,6 +29,7 @@
   create/5,
   delete/2,
   drop/1,
+  extra_info/1,
   inc/2,
   init/0,
   is_reached/2,
@@ -49,10 +50,10 @@
 -type appctx()    :: any().
 -type id()        :: any().
 -type limit()     :: map().
+-type limit_info() :: {boolean(), integer(), integer()}.
 -type objectid()  :: any().
 -type operator()  :: '$lt' | '$gt'.
 -type proplist()  :: list({atom(), any()}).
-% -type timestamp() :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
 -type timestamp() :: erlang:timestamp().
 
 %% API
@@ -101,7 +102,7 @@ create(Id, ObjectId, Frequency, MaxRequests,
     <<"frequency">> => Frequency,
     <<"max">> => MaxRequests,
     <<"current">> => 0,
-    <<"expiry">> => erlang:timestamp()
+    <<"expiry">> => reset(Frequency)
    },
   Backend:handle_create(Limit, BackendCtx).
 
@@ -133,13 +134,25 @@ inc(ObjectId, #{backend := Backend, backendctx := BackendCtx}) ->
 
 % @doc Check if all limits are not reached.
 % @end
--spec is_reached(objectid(), appctx()) -> boolean().
+-spec is_reached(objectid(), appctx()) -> {boolean(), list(limit())}.
 is_reached(ObjectId, #{backend := Backend, backendctx := BackendCtx}) ->
-  lists:any(
+  Limits = Backend:handle_bulk_read(
+           ObjectId, '$gt', erlang:timestamp(), BackendCtx),
+  IsReached = lists:any(
     fun(#{<<"current">> := Current, <<"max">> := Max}) ->
         Current > Max
-    end, Backend:handle_bulk_read(
-           ObjectId, '$gt', erlang:timestamp(), BackendCtx)).
+    end, Limits),
+  {IsReached, Limits}.
+
+-spec extra_info(list(limit())) -> limit_info().
+extra_info(Limits) ->
+  Now = timestamp_to_gregorian_seconds(erlang:timestamp()),
+  lists:map(
+    fun(#{<<"current">> := Current, <<"max">> := Max, <<"expiry">> := End}) ->
+        {Current > Max,
+         Max - Current,
+         timestamp_to_gregorian_seconds(End) - Now}
+    end, Limits).
 
 %% Private functions
 

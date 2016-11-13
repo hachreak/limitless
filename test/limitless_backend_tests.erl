@@ -259,7 +259,8 @@ reset_expired_test_() ->
 next_id_test() ->
   AppCtx = #{backend => limitless_backend_mongopool, backendctx => bar},
   Ids = lists:map(fun(_) ->
-                      limitless_backend:next_id(AppCtx)
+                      {ok, Id} = limitless_backend:next_id(AppCtx),
+                      Id
                   end, lists:seq(1, 100)),
   ?assertEqual(
     erlang:length(Ids),

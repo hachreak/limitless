@@ -81,16 +81,16 @@ is_reached_test_() ->
     fun mongo_stop/1,
     fun(AppCtx) -> [
         fun() ->
-          {Type1, Id1, ObjectId1, Frequency1, MaxRequests1} = fixture_limit_1(),
-          {Type2, Id2, ObjectId1, Frequency2, MaxRequests2} = fixture_limit_2(),
-          {Type3, Id3, ObjectId3, Frequency3, MaxRequests3} = fixture_limit_3(),
+          {Type1, Id1, ObjectId1, Freq1, MaxRequests1} = fixture_limit_1(),
+          {Type2, Id2, ObjectId1, Freq2, MaxRequests2} = fixture_limit_2(),
+          {Type3, Id3, ObjectId3, Freq3, MaxRequests3} = fixture_limit_3(),
           % create limits
           {ok, _} = limitless_backend:create(
-                    Type1, Id1, ObjectId1, Frequency1, MaxRequests1, AppCtx),
+                    Type1, Id1, ObjectId1, Freq1, MaxRequests1, AppCtx),
           {ok, _} = limitless_backend:create(
-                    Type2, Id2, ObjectId1, Frequency2, MaxRequests2, AppCtx),
+                    Type2, Id2, ObjectId1, Freq2, MaxRequests2, AppCtx),
           {ok, _} = limitless_backend:create(
-                    Type3, Id3, ObjectId3, Frequency3, MaxRequests3, AppCtx),
+                    Type3, Id3, ObjectId3, Freq3, MaxRequests3, AppCtx),
           % reach the limit for Id1
           % limitless:is_reached(ObjectId1, AppCtx),
           timer:sleep(1000),
@@ -100,8 +100,8 @@ is_reached_test_() ->
               {false, [{Type1, false, Req1, Frequency1Info},
                        {Type2, false, Req2, Frequency2Info}
                       ]} = limitless:is_reached(ObjectId1, AppCtx),
-              ?assertEqual(true, Frequency1Info < Frequency1),
-              ?assertEqual(true, Frequency2Info < Frequency2)
+              ?assertEqual(true, Frequency1Info < Freq1),
+              ?assertEqual(true, Frequency2Info < Freq2)
             end, lists:seq(1, MaxRequests1)),
           Req2 = MaxRequests2 - MaxRequests1 - 1,
           {true, [{Type1, true, -1, _},
@@ -110,7 +110,7 @@ is_reached_test_() ->
           Req3 = MaxRequests3 - 1,
           {false, [{Type3, false, Req3, Freq3Info}]} = limitless:is_reached(
                                                          ObjectId3, AppCtx),
-          ?assertEqual(true, Freq3Info < Frequency3),
+          ?assertEqual(true, Freq3Info < Freq3),
           % check limit of a objectid that doesn't exists
           ?assertMatch({false, []}, limitless:is_reached(
                                      <<"doesnt-exist">>, AppCtx))

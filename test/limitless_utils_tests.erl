@@ -30,3 +30,9 @@ get_or_fail_test() ->
   ?assertException(
      throw, not_found, limitless_utils:get_or_fail(
                          no_exists, [{b, c}, {a, d}])).
+
+timestamp_conversion_test() ->
+  {MegaSec, Sec, _} = Timestamp = erlang:timestamp(),
+  GregorianSec = limitless_utils:timestamp_to_gregorian_seconds(Timestamp),
+  NewTimestamp = limitless_utils:gregorian_second2timestamp(GregorianSec),
+  ?assertMatch({MegaSec, Sec, _}, NewTimestamp).

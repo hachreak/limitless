@@ -146,14 +146,14 @@ is_reached(ObjectId, #{backend := Backend, backendctx := BackendCtx}) ->
 
 -spec extra_info(list(limit())) -> limit_info().
 extra_info(Limits) ->
-  Now = timestamp_to_gregorian_seconds(erlang:timestamp()),
+  Now = limitless_utils:timestamp_to_gregorian_seconds(erlang:timestamp()),
   lists:map(
     fun(#{<<"current">> := Current, <<"max">> := Max,
           <<"expiry">> := End, <<"type">> := Type}) ->
         {Type,
          Current > Max,
          Max - Current,
-         timestamp_to_gregorian_seconds(End) - Now}
+         limitless_utils:timestamp_to_gregorian_seconds(End) - Now}
     end, Limits).
 
 %% Private functions
@@ -162,20 +162,6 @@ extra_info(Limits) ->
 % @end
 -spec reset(non_neg_integer()) -> timestamp().
 reset(Frequency) ->
-  gregorian_second2timestamp(
-    timestamp_to_gregorian_seconds(erlang:timestamp()) + Frequency).
-
-% @doc Computes the number of gregorian seconds starting with year 0 and
-% ending at the specified timestamp.
-% @end
--spec timestamp_to_gregorian_seconds(timestamp()) -> non_neg_integer().
-timestamp_to_gregorian_seconds(Timestamp) ->
-  calendar:datetime_to_gregorian_seconds(
-    calendar:now_to_universal_time(Timestamp)).
-
-% @doc Convert the number of gregorian seconds in a timestamp.
-% @end
--spec gregorian_second2timestamp(non_neg_integer()) -> timestamp().
-gregorian_second2timestamp(Seconds) ->
-  FixSeconds = Seconds - 62167219200,
-  {FixSeconds div 1000000, FixSeconds rem 1000000, 0}.
+  limitless_utils:gregorian_second2timestamp(
+    limitless_utils:timestamp_to_gregorian_seconds(
+      erlang:timestamp()) + Frequency).

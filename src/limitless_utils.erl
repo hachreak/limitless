@@ -22,7 +22,15 @@
 
 -author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
 
--export([get_or_fail/2]).
+-export([
+  get_or_fail/2,
+  gregorian_second2timestamp/1,
+  timestamp_to_gregorian_seconds/1
+]).
+
+%% Types
+
+-type timestamp() :: erlang:timestamp().
 
 %% API
 
@@ -33,3 +41,17 @@ get_or_fail(Key, List) ->
     Value -> Value
   end.
 
+% @doc Computes the number of gregorian seconds starting with year 0 and
+% ending at the specified timestamp.
+% @end
+-spec timestamp_to_gregorian_seconds(timestamp()) -> non_neg_integer().
+timestamp_to_gregorian_seconds(Timestamp) ->
+  calendar:datetime_to_gregorian_seconds(
+    calendar:now_to_universal_time(Timestamp)).
+
+% @doc Convert the number of gregorian seconds in a timestamp.
+% @end
+-spec gregorian_second2timestamp(non_neg_integer()) -> timestamp().
+gregorian_second2timestamp(Seconds) ->
+  FixSeconds = Seconds - 62167219200,
+  {FixSeconds div 1000000, FixSeconds rem 1000000, 0}.

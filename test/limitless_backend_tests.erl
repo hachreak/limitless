@@ -52,32 +52,36 @@ mongo_stop(AppCtx) ->
   application:unset_env(limitless_backend, backend).
 
 fixture_limit_1() ->
+  Type = <<"montly">>,
   Id = <<"limit-1">>,
   ObjectId = <<"obj-1">>,
   Frequency = 3600,
   MaxRequests = 10,
-  {Id, ObjectId, Frequency, MaxRequests}.
+  {Type, Id, ObjectId, Frequency, MaxRequests}.
 
 fixture_limit_2() ->
+  Type = <<"daily">>,
   Id = <<"limit-2">>,
   ObjectId = <<"obj-1">>,
   Frequency = 3600,
   MaxRequests = 20,
-  {Id, ObjectId, Frequency, MaxRequests}.
+  {Type, Id, ObjectId, Frequency, MaxRequests}.
 
 fixture_limit_3() ->
+  Type = <<"daily">>,
   Id = <<"limit-3">>,
   ObjectId = <<"obj-2">>,
   Frequency = 3600,
   MaxRequests = 20,
-  {Id, ObjectId, Frequency, MaxRequests}.
+  {Type, Id, ObjectId, Frequency, MaxRequests}.
 
 fixture_expired_limit_4() ->
+  Type = <<"daily">>,
   Id = <<"limit-4">>,
   ObjectId = <<"obj-1">>,
   Frequency = 1,
   MaxRequests = 10,
-  {Id, ObjectId, Frequency, MaxRequests}.
+  {Type, Id, ObjectId, Frequency, MaxRequests}.
 
 create_test_() ->
   {setup,
@@ -85,13 +89,14 @@ create_test_() ->
     fun mongo_stop/1,
     fun(AppCtx) -> [
         fun() ->
-          {Id, ObjectId, Frequency, MaxRequests} = fixture_limit_1(),
+          {Type, Id, ObjectId, Frequency, MaxRequests} = fixture_limit_1(),
           % check db empty
           [] = limitless_backend:bulk_read(ObjectId, AppCtx),
           % create limit
           {ok, Limit} = limitless_backend:create(
-                    Id, ObjectId, Frequency, MaxRequests, AppCtx),
+                    Type, Id, ObjectId, Frequency, MaxRequests, AppCtx),
           % check returned value
+          ?assertEqual(Type, maps:get(<<"type">>, Limit)),
           ?assertEqual(Id, maps:get(<<"_id">>, Limit)),
           ?assertEqual(ObjectId, maps:get(<<"objectid">>, Limit)),
           ?assertEqual(Frequency, maps:get(<<"frequency">>, Limit)),
@@ -100,6 +105,7 @@ create_test_() ->
           ?assertEqual(true, maps:is_key(<<"expiry">>, Limit)),
           % check database
           [LimitWrote] = limitless_backend:bulk_read(ObjectId, AppCtx),
+          ?assertEqual(Type, maps:get(<<"type">>, LimitWrote)),
           ?assertEqual(Id, maps:get(<<"_id">>, LimitWrote)),
           ?assertEqual(ObjectId, maps:get(<<"objectid">>, LimitWrote)),
           ?assertEqual(Frequency, maps:get(<<"frequency">>, LimitWrote)),
@@ -117,15 +123,15 @@ delete_test_() ->
     fun mongo_stop/1,
     fun(AppCtx) -> [
         fun() ->
-          {Id1, ObjectId, Frequency1, MaxRequests1} = fixture_limit_1(),
-          {Id2, ObjectId, Frequency2, MaxRequests2} = fixture_limit_2(),
+          {Type1, Id1, ObjectId, Frequency1, MaxRequests1} = fixture_limit_1(),
+          {Type2, Id2, ObjectId, Frequency2, MaxRequests2} = fixture_limit_2(),
           % check db empty
           [] = limitless_backend:bulk_read(ObjectId, AppCtx),
           % create limits
           {ok, _} = limitless_backend:create(
-                    Id1, ObjectId, Frequency1, MaxRequests1, AppCtx),
+                    Type1, Id1, ObjectId, Frequency1, MaxRequests1, AppCtx),
           {ok, _} = limitless_backend:create(
-                    Id2, ObjectId, Frequency2, MaxRequests2, AppCtx),
+                    Type2, Id2, ObjectId, Frequency2, MaxRequests2, AppCtx),
           % try to delete only the fixture 1
           limitless_backend:delete(Id1, AppCtx),
           % check db
@@ -142,16 +148,16 @@ inc_test_() ->
     fun mongo_stop/1,
     fun(AppCtx) -> [
         fun() ->
-          {Id1, ObjectId1, Frequency1, MaxRequests1} = fixture_limit_1(),
-          {Id2, ObjectId1, Frequency2, MaxRequests2} = fixture_limit_2(),
-          {Id3, ObjectId3, Frequency3, MaxRequests3} = fixture_limit_3(),
+          {Type1, Id1, ObjectId1, Frequency1, MaxRequests1} = fixture_limit_1(),
+          {Type2, Id2, ObjectId1, Frequency2, MaxRequests2} = fixture_limit_2(),
+          {Type3, Id3, ObjectId3, Frequency3, MaxRequests3} = fixture_limit_3(),
           % create limits
           {ok, _} = limitless_backend:create(
-                    Id1, ObjectId1, Frequency1, MaxRequests1, AppCtx),
+                    Type1, Id1, ObjectId1, Frequency1, MaxRequests1, AppCtx),
           {ok, _} = limitless_backend:create(
-                    Id2, ObjectId1, Frequency2, MaxRequests2, AppCtx),
+                    Type2, Id2, ObjectId1, Frequency2, MaxRequests2, AppCtx),
           {ok, _} = limitless_backend:create(
-                    Id3, ObjectId3, Frequency3, MaxRequests3, AppCtx),
+                    Type3, Id3, ObjectId3, Frequency3, MaxRequests3, AppCtx),
           % check objectids
           ?assertNotEqual(ObjectId1, ObjectId3),
           % try to increment current
@@ -173,16 +179,16 @@ is_reached_test_() ->
     fun mongo_stop/1,
     fun(AppCtx) -> [
         fun() ->
-          {Id1, ObjectId1, Frequency1, MaxRequests1} = fixture_limit_1(),
-          {Id2, ObjectId1, Frequency2, MaxRequests2} = fixture_limit_2(),
-          {Id3, ObjectId3, Frequency3, MaxRequests3} = fixture_limit_3(),
+          {Type1, Id1, ObjectId1, Frequency1, MaxRequests1} = fixture_limit_1(),
+          {Type2, Id2, ObjectId1, Frequency2, MaxRequests2} = fixture_limit_2(),
+          {Type3, Id3, ObjectId3, Frequency3, MaxRequests3} = fixture_limit_3(),
           % create limits
           {ok, _} = limitless_backend:create(
-                    Id1, ObjectId1, Frequency1, MaxRequests1, AppCtx),
+                    Type1, Id1, ObjectId1, Frequency1, MaxRequests1, AppCtx),
           {ok, _} = limitless_backend:create(
-                    Id2, ObjectId1, Frequency2, MaxRequests2, AppCtx),
+                    Type2, Id2, ObjectId1, Frequency2, MaxRequests2, AppCtx),
           {ok, _} = limitless_backend:create(
-                    Id3, ObjectId3, Frequency3, MaxRequests3, AppCtx),
+                    Type3, Id3, ObjectId3, Frequency3, MaxRequests3, AppCtx),
           % reset timers
           limitless_backend:reset_expired(ObjectId1, AppCtx),
           limitless_backend:reset_expired(ObjectId3, AppCtx),
@@ -210,14 +216,14 @@ reset_expired_test_() ->
     fun mongo_stop/1,
     fun(AppCtx) -> [
         fun() ->
-          {Id1, ObjectId1, Frequency1,
+          {Type4, Id1, ObjectId1, Frequency1,
            MaxRequests1} = fixture_expired_limit_4(),
-          {Id3, ObjectId3, Frequency3, MaxRequests3} = fixture_limit_3(),
+          {Type3, Id3, ObjectId3, Frequency3, MaxRequests3} = fixture_limit_3(),
           % create limits
           {ok, _} = limitless_backend:create(
-                    Id1, ObjectId1, Frequency1, MaxRequests1, AppCtx),
+                    Type4, Id1, ObjectId1, Frequency1, MaxRequests1, AppCtx),
           {ok, _} = limitless_backend:create(
-                    Id3, ObjectId3, Frequency3, MaxRequests3, AppCtx),
+                    Type3, Id3, ObjectId3, Frequency3, MaxRequests3, AppCtx),
           % increment counters
           limitless_backend:inc(ObjectId1, AppCtx),
           limitless_backend:inc(ObjectId3, AppCtx),
@@ -252,7 +258,9 @@ reset_expired_test_() ->
 
 next_id_test() ->
   AppCtx = #{backend => limitless_backend_mongopool, backendctx => bar},
-  Ids = lists:map(fun(_) -> limitless_backend:next_id(AppCtx) end, lists:seq(1, 100)),
+  Ids = lists:map(fun(_) ->
+                      limitless_backend:next_id(AppCtx)
+                  end, lists:seq(1, 100)),
   ?assertEqual(
     erlang:length(Ids),
     erlang:length(sets:to_list(sets:from_list(Ids)))).
@@ -263,19 +271,19 @@ extra_info_test_() ->
     fun mongo_stop/1,
     fun(AppCtx) -> [
         fun() ->
-          {Id1, ObjectId1, Frequency1, MaxRequests1} = fixture_limit_1(),
-          {Id3, ObjectId3, Frequency3, MaxRequests3} = fixture_limit_3(),
+          {Type1, Id1, ObjectId1, Frequency1, MaxRequests1} = fixture_limit_1(),
+          {Type3, Id3, ObjectId3, Frequency3, MaxRequests3} = fixture_limit_3(),
           % create limits
           {ok, _} = limitless_backend:create(
-                    Id1, ObjectId1, Frequency1, MaxRequests1, AppCtx),
+                    Type1, Id1, ObjectId1, Frequency1, MaxRequests1, AppCtx),
           {ok, _} = limitless_backend:create(
-                    Id3, ObjectId3, Frequency3, MaxRequests3, AppCtx),
+                    Type3, Id3, ObjectId3, Frequency3, MaxRequests3, AppCtx),
           timer:sleep(1000),
           lists:foreach(fun(Index) ->
               % increment counters
               limitless_backend:inc(ObjectId1, AppCtx),
-              check_info(ObjectId1, Frequency1, Index, AppCtx),
-              check_info(ObjectId3, Frequency3, MaxRequests3, AppCtx)
+              check_info(Type1, ObjectId1, Frequency1, Index, AppCtx),
+              check_info(Type3, ObjectId3, Frequency3, MaxRequests3, AppCtx)
             end, lists:seq(MaxRequests1 - 1, 0, -1)),
           limitless_backend:inc(ObjectId1, AppCtx),
           {true, _} = limitless_backend:is_reached(ObjectId1, AppCtx),
@@ -287,9 +295,10 @@ extra_info_test_() ->
   }.
 
 %% Private functions
-check_info(ObjectId, Frequency, Count, AppCtx) ->
+check_info(Type, ObjectId, Frequency, Count, AppCtx) ->
   % check is reached
   {false, Limits} = limitless_backend:is_reached(ObjectId, AppCtx),
   % and looks inside extra info
-  [{false, Count, Frequency1Info}] = limitless_backend:extra_info(Limits),
+  [{Type, false,
+    Count, Frequency1Info}] = limitless_backend:extra_info(Limits),
   ?assertEqual(true, Frequency1Info < Frequency).

@@ -26,7 +26,7 @@
 
 -export([
   bulk_read/2,
-  create/5,
+  create/6,
   delete/2,
   drop/1,
   extra_info/1,
@@ -91,13 +91,13 @@ init() ->
 next_id(#{backend := Backend, backendctx := BackendCtx}) ->
   Backend:handle_next_id(BackendCtx).
 
--spec create(
-    id(), objectid(), non_neg_integer(), non_neg_integer(), appctx()) ->
-      {ok, limit()} | {error, term()}.
-create(Id, ObjectId, Frequency, MaxRequests,
+-spec create(binary(), id(), objectid(), non_neg_integer(),
+             non_neg_integer(), appctx()) -> {ok, limit()} | {error, term()}.
+create(Type, Id, ObjectId, Frequency, MaxRequests,
        #{backend := Backend, backendctx := BackendCtx}) ->
   Limit =  #{
     <<"_id">> => Id,
+    <<"type">> => Type,
     <<"objectid">> => ObjectId,
     <<"frequency">> => Frequency,
     <<"max">> => MaxRequests,
@@ -148,8 +148,10 @@ is_reached(ObjectId, #{backend := Backend, backendctx := BackendCtx}) ->
 extra_info(Limits) ->
   Now = timestamp_to_gregorian_seconds(erlang:timestamp()),
   lists:map(
-    fun(#{<<"current">> := Current, <<"max">> := Max, <<"expiry">> := End}) ->
-        {Current > Max,
+    fun(#{<<"current">> := Current, <<"max">> := Max,
+          <<"expiry">> := End, <<"type">> := Type}) ->
+        {Type,
+         Current > Max,
          Max - Current,
          timestamp_to_gregorian_seconds(End) - Now}
     end, Limits).

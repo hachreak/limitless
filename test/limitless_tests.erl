@@ -52,25 +52,28 @@ mongo_stop(AppCtx) ->
   application:unset_env(limitless_backend, backend).
 
 fixture_limit_1() ->
+  Type = <<"montly">>,
   Id = <<"limit-1">>,
   ObjectId = <<"obj-1">>,
   Frequency = 3600,
   MaxRequests = 10,
-  {Id, ObjectId, Frequency, MaxRequests}.
+  {Type, Id, ObjectId, Frequency, MaxRequests}.
 
 fixture_limit_2() ->
+  Type = <<"daily">>,
   Id = <<"limit-2">>,
   ObjectId = <<"obj-1">>,
   Frequency = 3600,
   MaxRequests = 20,
-  {Id, ObjectId, Frequency, MaxRequests}.
+  {Type, Id, ObjectId, Frequency, MaxRequests}.
 
 fixture_limit_3() ->
+  Type = <<"daily">>,
   Id = <<"limit-3">>,
   ObjectId = <<"obj-2">>,
   Frequency = 3600,
   MaxRequests = 20,
-  {Id, ObjectId, Frequency, MaxRequests}.
+  {Type, Id, ObjectId, Frequency, MaxRequests}.
 
 is_reached_test_() ->
   {setup,
@@ -78,31 +81,38 @@ is_reached_test_() ->
     fun mongo_stop/1,
     fun(AppCtx) -> [
         fun() ->
-          {Id1, ObjectId1, Frequency1, MaxRequests1} = fixture_limit_1(),
-          {Id2, ObjectId1, Frequency2, MaxRequests2} = fixture_limit_2(),
-          {Id3, ObjectId3, Frequency3, MaxRequests3} = fixture_limit_3(),
+          {Type1, Id1, ObjectId1, Frequency1, MaxRequests1} = fixture_limit_1(),
+          {Type2, Id2, ObjectId1, Frequency2, MaxRequests2} = fixture_limit_2(),
+          {Type3, Id3, ObjectId3, Frequency3, MaxRequests3} = fixture_limit_3(),
           % create limits
           {ok, _} = limitless_backend:create(
-                    Id1, ObjectId1, Frequency1, MaxRequests1, AppCtx),
+                    Type1, Id1, ObjectId1, Frequency1, MaxRequests1, AppCtx),
           {ok, _} = limitless_backend:create(
-                    Id2, ObjectId1, Frequency2, MaxRequests2, AppCtx),
+                    Type2, Id2, ObjectId1, Frequency2, MaxRequests2, AppCtx),
           {ok, _} = limitless_backend:create(
-                    Id3, ObjectId3, Frequency3, MaxRequests3, AppCtx),
+                    Type3, Id3, ObjectId3, Frequency3, MaxRequests3, AppCtx),
           % reach the limit for Id1
           % limitless:is_reached(ObjectId1, AppCtx),
           timer:sleep(1000),
           lists:foreach(fun(Index) ->
               Req1 = MaxRequests1 - Index,
               Req2 = MaxRequests2 - Index,
-              {false, [{false, Req1, Frequency1Info}, {false, Req2, Frequency2Info}]} = limitless:is_reached(ObjectId1, AppCtx),
+              {false, [{Type1, false, Req1, Frequency1Info},
+                       {Type2, false, Req2, Frequency2Info}
+                      ]} = limitless:is_reached(ObjectId1, AppCtx),
               ?assertEqual(true, Frequency1Info < Frequency1),
               ?assertEqual(true, Frequency2Info < Frequency2)
             end, lists:seq(1, MaxRequests1)),
           Req2 = MaxRequests2 - MaxRequests1 - 1,
-          {true, [{true, -1, _}, {false, Req2, _}]} = limitless:is_reached(ObjectId1, AppCtx),
-          ?assertMatch({false, _}, limitless:is_reached(ObjectId3, AppCtx)),
+          {true, [{Type1, true, -1, _},
+                  {Type2, false, Req2, _}
+                 ]} = limitless:is_reached(ObjectId1, AppCtx),
+          Req3 = MaxRequests3 - 1,
+          {false, [{Type3, false, Req3, Freq3Info}]} = limitless:is_reached(
+                                                         ObjectId3, AppCtx),
+          ?assertEqual(true, Freq3Info < Frequency3),
           % check limit of a objectid that doesn't exists
-          ?assertMatch({false, _}, limitless:is_reached(
+          ?assertMatch({false, []}, limitless:is_reached(
                                      <<"doesnt-exist">>, AppCtx))
         end
       ]

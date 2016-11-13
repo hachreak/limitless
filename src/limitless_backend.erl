@@ -150,10 +150,8 @@ extra_info(Limits) ->
   lists:map(
     fun(#{<<"current">> := Current, <<"max">> := Max,
           <<"expiry">> := End, <<"type">> := Type}) ->
-        {Type,
-         Current > Max,
-         Max - Current,
-         limitless_utils:timestamp_to_gregorian_seconds(End) - Now}
+        WhenReset = limitless_utils:timestamp_to_gregorian_seconds(End) - Now,
+        {Type, Max, Max - Current, WhenReset}
     end, Limits).
 
 %% Private functions

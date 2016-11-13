@@ -282,8 +282,9 @@ extra_info_test_() ->
           lists:foreach(fun(Index) ->
               % increment counters
               limitless_backend:inc(ObjectId1, AppCtx),
-              check_info(Type1, ObjectId1, Freq1, Index, AppCtx),
-              check_info(Type3, ObjectId3, Freq3, MaxRequests3, AppCtx)
+              check_info(Type1, ObjectId1, Freq1, MaxRequests1, Index, AppCtx),
+              check_info(
+                Type3, ObjectId3, Freq3, MaxRequests3, MaxRequests3, AppCtx)
             end, lists:seq(MaxRequests1 - 1, 0, -1)),
           limitless_backend:inc(ObjectId1, AppCtx),
           {true, _} = limitless_backend:is_reached(ObjectId1, AppCtx),
@@ -295,10 +296,10 @@ extra_info_test_() ->
   }.
 
 %% Private functions
-check_info(Type, ObjectId, Frequency, Count, AppCtx) ->
+check_info(Type, ObjectId, Frequency, MaxRequests, Count, AppCtx) ->
   % check is reached
   {false, Limits} = limitless_backend:is_reached(ObjectId, AppCtx),
   % and looks inside extra info
-  [{Type, false,
+  [{Type, MaxRequests,
     Count, Frequency1Info}] = limitless_backend:extra_info(Limits),
   ?assertEqual(true, Frequency1Info < Frequency).

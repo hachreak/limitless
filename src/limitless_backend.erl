@@ -82,10 +82,12 @@
 -spec init() -> {ok, appctx()}.
 init() ->
   {ok, BackendConfig} = application:get_env(limitless, backend),
+  {ok, LimitsConfig} = application:get_env(limitless, limits),
   Backend = limitless_utils:get_or_fail(name, BackendConfig),
   Configs = limitless_utils:get_or_fail(config, BackendConfig),
   {ok, BackendCtx} = Backend:handle_init(Configs),
-  {ok, #{backend => Backend, backendctx => BackendCtx}}.
+  {ok,
+   #{backend => Backend, backendctx => BackendCtx, limits => LimitsConfig}}.
 
 -spec next_id(appctx()) -> {ok, id()} | {error, term()}.
 next_id(#{backend := Backend, backendctx := BackendCtx}) ->

@@ -151,10 +151,13 @@ extra_info(Limits) ->
     fun(#{<<"current">> := Current, <<"max">> := Max,
           <<"expiry">> := End, <<"type">> := Type}) ->
         WhenReset = limitless_utils:timestamp_to_gregorian_seconds(End) - Now,
-        {Type, Max, Max - Current, WhenReset}
+        {Type, Max, remaining(Current, Max), WhenReset}
     end, Limits).
 
 %% Private functions
+
+remaining(Current, Max) when Current >= Max -> 0;
+remaining(Current, Max) -> Max - Current.
 
 -spec check(non_neg_integer(), non_neg_integer()) -> binary().
 check(Current, Max) ->

@@ -140,7 +140,7 @@ is_reached(ObjectId, #{backend := Backend, backendctx := BackendCtx}) ->
            ObjectId, '$gt', erlang:timestamp(), BackendCtx),
   IsReached = lists:any(
     fun(#{<<"current">> := Current, <<"max">> := Max}) ->
-        Current > Max
+        check(Current, Max)
     end, Limits),
   {IsReached, Limits}.
 
@@ -155,6 +155,10 @@ extra_info(Limits) ->
     end, Limits).
 
 %% Private functions
+
+-spec check(non_neg_integer(), non_neg_integer()) -> binary().
+check(Current, Max) ->
+  Current >= Max.
 
 % @doc Compute next interval computed as `now + frequency in seconds`.
 % @end

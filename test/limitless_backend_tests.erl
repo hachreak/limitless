@@ -200,7 +200,7 @@ is_reached_test_() ->
           % reach the limit for Id3
           lists:foreach(fun(_) ->
               limitless_backend:inc(ObjectId3, AppCtx)
-            end, lists:seq(1, MaxRequests3 + 1)),
+            end, lists:seq(1, MaxRequests3)),
           ?assertMatch({false, _},
                        limitless_backend:is_reached(ObjectId1, AppCtx)),
           ?assertMatch({true, _},
@@ -286,7 +286,7 @@ extra_info_test_() ->
               check_info(Type1, ObjectId1, Freq1, MaxRequests1, Index, AppCtx),
               check_info(
                 Type3, ObjectId3, Freq3, MaxRequests3, MaxRequests3, AppCtx)
-            end, lists:seq(MaxRequests1 - 1, 0, -1)),
+            end, lists:seq(MaxRequests1 - 1, 1, -1)),
           limitless_backend:inc(ObjectId1, AppCtx),
           {true, _} = limitless_backend:is_reached(ObjectId1, AppCtx),
           {false, _} = limitless_backend:is_reached(ObjectId3, AppCtx),

@@ -102,11 +102,11 @@ is_reached_test_() ->
                       ]} = limitless:is_reached(ObjectId1, AppCtx),
               ?assertEqual(true, Frequency1Info < Freq1),
               ?assertEqual(true, Frequency2Info < Freq2)
-            end, lists:seq(1, MaxRequests1)),
-          Req2 = MaxRequests2 - MaxRequests1 - 1,
-          {true, [{Type1, MaxRequests1, -1, _},
+            end, lists:seq(1, MaxRequests1 - 1)),
+          Req2 = MaxRequests2 - MaxRequests1,
+          ?assertMatch({true, [{Type1, MaxRequests1, 0, _},
                   {Type2, MaxRequests2, Req2, _}
-                 ]} = limitless:is_reached(ObjectId1, AppCtx),
+                 ]}, limitless:is_reached(ObjectId1, AppCtx)),
           Req3 = MaxRequests3 - 1,
           {false,
            [{Type3, MaxRequests3,

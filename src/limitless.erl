@@ -23,8 +23,10 @@
 -author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
 
 -export([
+  create/6,
   init/0,
-  is_reached/2
+  is_reached/2,
+  next_id/1
 ]).
 
 %% Types
@@ -32,6 +34,8 @@
 -type appctx()     :: limitless_backend:appctx().
 -type limit_info() :: limitless_backend:limit_info().
 -type objectid()   :: limitless_backend:objectid().
+-type id()         :: limitless_backend:id().
+-type limit()      :: limitless_backend:limit().
 
 
 %%====================================================================
@@ -49,6 +53,15 @@ is_reached(ObjectId, AppCtx) ->
   {IsReached, Limits} = limitless_backend:is_reached(ObjectId, AppCtx),
   ExtraInfo = limitless_backend:extra_info(Limits),
   {IsReached, ExtraInfo}.
+
+-spec next_id(appctx()) -> {ok, id()} | {error, term()}.
+next_id(AppCtx) ->
+  limitless_backend:next_id(AppCtx).
+
+-spec create(binary(), id(), objectid(), non_neg_integer(),
+             non_neg_integer(), appctx()) -> {ok, limit()} | {error, term()}.
+create(Type, Id, ObjectId, Frequency, MaxRequests, AppCtx) ->
+  limitless_backend:create(Type, Id, ObjectId, Frequency, MaxRequests, AppCtx).
 
 %%====================================================================
 %% Internal functions

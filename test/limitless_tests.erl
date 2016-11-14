@@ -43,11 +43,27 @@ mongo_start() ->
         {pool, eshpool}
       ]}
     ]),
+  application:set_env(
+    limitless, limits, [
+      {user, [
+        [
+          {type, <<"User-Daily">>},
+          {frequency, 86400},
+          {requests, 5000}
+        ],
+        [
+          {type, <<"User-15min">>},
+          {frequency, 54000},
+          {requests, 1000}
+        ]
+      ]}
+    ]
+   ),
   {ok, AppCtx} = limitless:init(),
   AppCtx.
 
-mongo_stop(AppCtx) ->
-  limitless_backend:drop(AppCtx),
+mongo_stop(#{ctx := Ctx}) ->
+  limitless_backend:drop(Ctx),
   application:unset_env(mongopool, pools),
   application:unset_env(limitless_backend, backend).
 
@@ -75,22 +91,43 @@ fixture_limit_3() ->
   MaxRequests = 20,
   {Type, Id, ObjectId, Frequency, MaxRequests}.
 
+setup_test_() ->
+  {setup,
+    fun mongo_start/0,
+    fun mongo_stop/1,
+    fun(#{ctx := Ctx}=AppCtx) -> [
+        fun() ->
+          ObjectId = <<"pippo">>,
+          Group = user,
+          % check db empty
+          [] = limitless_backend:bulk_read(ObjectId, Ctx),
+          % setup limits
+          limitless:setup(ObjectId, Group, AppCtx),
+          % check
+          [Limit1, Limit2] = limitless_backend:bulk_read(ObjectId, Ctx),
+          check_limit(Limit1, <<"User-Daily">>, ObjectId, 86400, 5000),
+          check_limit(Limit2, <<"User-15min">>, ObjectId, 54000, 1000)
+        end
+      ]
+    end
+  }.
+
 is_reached_test_() ->
   {setup,
     fun mongo_start/0,
     fun mongo_stop/1,
-    fun(AppCtx) -> [
+    fun(#{ctx := Ctx}=AppCtx) -> [
         fun() ->
           {Type1, Id1, ObjectId1, Freq1, MaxRequests1} = fixture_limit_1(),
           {Type2, Id2, ObjectId1, Freq2, MaxRequests2} = fixture_limit_2(),
           {Type3, Id3, ObjectId3, Freq3, MaxRequests3} = fixture_limit_3(),
           % create limits
           {ok, _} = limitless_backend:create(
-                    Type1, Id1, ObjectId1, Freq1, MaxRequests1, AppCtx),
+                    Type1, Id1, ObjectId1, Freq1, MaxRequests1, Ctx),
           {ok, _} = limitless_backend:create(
-                    Type2, Id2, ObjectId1, Freq2, MaxRequests2, AppCtx),
+                    Type2, Id2, ObjectId1, Freq2, MaxRequests2, Ctx),
           {ok, _} = limitless_backend:create(
-                    Type3, Id3, ObjectId3, Freq3, MaxRequests3, AppCtx),
+                    Type3, Id3, ObjectId3, Freq3, MaxRequests3, Ctx),
           % reach the limit for Id1
           % limitless:is_reached(ObjectId1, AppCtx),
           timer:sleep(1000),
@@ -125,7 +162,8 @@ is_reached_test_() ->
   }.
 
 next_id_test() ->
-  AppCtx = #{backend => limitless_backend_mongopool, backendctx => bar},
+  BackendCtx = #{backend => limitless_backend_mongopool, backendctx => bar},
+  AppCtx = #{ctx => BackendCtx, limits => mylist},
   Ids = lists:map(fun(_) ->
       {ok, Id} = limitless:next_id(AppCtx),
       Id
@@ -134,36 +172,13 @@ next_id_test() ->
     erlang:length(Ids),
     erlang:length(sets:to_list(sets:from_list(Ids)))).
 
-create_test_() ->
-  {setup,
-    fun mongo_start/0,
-    fun mongo_stop/1,
-    fun(AppCtx) -> [
-        fun() ->
-          {Type, Id, ObjectId, Frequency, MaxRequests} = fixture_limit_1(),
-          % check db empty
-          [] = limitless_backend:bulk_read(ObjectId, AppCtx),
-          % create limit
-          {ok, Limit} = limitless:create(
-                    Type, Id, ObjectId, Frequency, MaxRequests, AppCtx),
-          % check returned value
-          ?assertEqual(Type, maps:get(<<"type">>, Limit)),
-          ?assertEqual(Id, maps:get(<<"_id">>, Limit)),
-          ?assertEqual(ObjectId, maps:get(<<"objectid">>, Limit)),
-          ?assertEqual(Frequency, maps:get(<<"frequency">>, Limit)),
-          ?assertEqual(MaxRequests, maps:get(<<"max">>, Limit)),
-          ?assertEqual(0, maps:get(<<"current">>, Limit)),
-          ?assertEqual(true, maps:is_key(<<"expiry">>, Limit)),
-          % check database
-          [LimitWrote] = limitless_backend:bulk_read(ObjectId, AppCtx),
-          ?assertEqual(Type, maps:get(<<"type">>, LimitWrote)),
-          ?assertEqual(Id, maps:get(<<"_id">>, LimitWrote)),
-          ?assertEqual(ObjectId, maps:get(<<"objectid">>, LimitWrote)),
-          ?assertEqual(Frequency, maps:get(<<"frequency">>, LimitWrote)),
-          ?assertEqual(MaxRequests, maps:get(<<"max">>, LimitWrote)),
-          ?assertEqual(0, maps:get(<<"current">>, LimitWrote)),
-          ?assertEqual(true, maps:is_key(<<"expiry">>, LimitWrote))
-        end
-      ]
-    end
-  }.
+%% Private functions
+
+check_limit(Limit, Type, ObjectId, Frequency, MaxRequests) ->
+  ?assertEqual(Type, maps:get(<<"type">>, Limit)),
+  ?assertEqual(true, maps:is_key(<<"_id">>, Limit)),
+  ?assertEqual(ObjectId, maps:get(<<"objectid">>, Limit)),
+  ?assertEqual(Frequency, maps:get(<<"frequency">>, Limit)),
+  ?assertEqual(MaxRequests, maps:get(<<"max">>, Limit)),
+  ?assertEqual(0, maps:get(<<"current">>, Limit)),
+  ?assertEqual(true, maps:is_key(<<"expiry">>, Limit)).

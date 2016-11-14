@@ -23,19 +23,20 @@
 -author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
 
 -export([
-  create/6,
   init/0,
   is_reached/2,
-  next_id/1
+  next_id/1,
+  setup/3
 ]).
 
 %% Types
 
--type appctx()     :: limitless_backend:appctx().
--type limit_info() :: limitless_backend:limit_info().
--type objectid()   :: limitless_backend:objectid().
+-type appctx()     :: #{ctx => ctx(), limits => list()}.
+-type ctx()        :: limitless_backend:ctx().
 -type id()         :: limitless_backend:id().
 -type limit()      :: limitless_backend:limit().
+-type limit_info() :: limitless_backend:limit_info().
+-type objectid()   :: limitless_backend:objectid().
 
 
 %%====================================================================
@@ -44,24 +45,34 @@
 
 -spec init() -> {ok, appctx()}.
 init() ->
-  limitless_backend:init().
+  {ok, BackendConfig} = application:get_env(limitless, backend),
+  {ok, Ctx} = limitless_backend:init(BackendConfig),
+  {ok, LimitsConfig} = application:get_env(limitless, limits),
+  {ok, #{ctx => Ctx, limits => LimitsConfig}}.
 
 -spec is_reached(objectid(), appctx()) -> {boolean(), list(limit_info())}.
-is_reached(ObjectId, AppCtx) ->
-  limitless_backend:reset_expired(ObjectId, AppCtx),
+is_reached(ObjectId, #{ctx := Ctx}) ->
+  limitless_backend:reset_expired(ObjectId, Ctx),
   {IsReached, Limits} = conditional_inc(
-      limitless_backend:is_reached(ObjectId, AppCtx), ObjectId, AppCtx),
+      limitless_backend:is_reached(ObjectId, Ctx), ObjectId, Ctx),
   ExtraInfo = limitless_backend:extra_info(Limits),
   {IsReached, ExtraInfo}.
 
 -spec next_id(appctx()) -> {ok, id()} | {error, term()}.
-next_id(AppCtx) ->
-  limitless_backend:next_id(AppCtx).
+next_id(#{ctx := Ctx}) ->
+  limitless_backend:next_id(Ctx).
 
--spec create(binary(), id(), objectid(), non_neg_integer(),
-             non_neg_integer(), appctx()) -> {ok, limit()} | {error, term()}.
-create(Type, Id, ObjectId, Frequency, MaxRequests, AppCtx) ->
-  limitless_backend:create(Type, Id, ObjectId, Frequency, MaxRequests, AppCtx).
+% @doc Setup limmits from configuration: initialize in database.
+% @end
+setup(ObjectId, Group, #{ctx := Ctx, limits := LimitsConfig}) ->
+  lists:map(fun(Config) ->
+      Type = limitless_utils:get_or_fail(type, Config),
+      Frequency = limitless_utils:get_or_fail(frequency, Config),
+      Requests = limitless_utils:get_or_fail(requests, Config),
+      {ok, Id} = limitless_backend:next_id(Ctx),
+      limitless_backend:create(
+        Type, Id, ObjectId, Frequency, Requests, Ctx)
+    end, proplists:get_value(Group, LimitsConfig)).
 
 %%====================================================================
 %% Internal functions
@@ -70,6 +81,6 @@ create(Type, Id, ObjectId, Frequency, MaxRequests, AppCtx) ->
 -spec conditional_inc({boolean(), list(limit())}, objectid(), appctx()) ->
     {boolean(), list(limit())}.
 conditional_inc({true, Limits}, _, _) -> {true, Limits};
-conditional_inc({false, Limits}, ObjectId, AppCtx) ->
-  limitless_backend:inc(ObjectId, AppCtx),
+conditional_inc({false, Limits}, ObjectId, Ctx) ->
+  limitless_backend:inc(ObjectId, Ctx),
   {false, Limits}.

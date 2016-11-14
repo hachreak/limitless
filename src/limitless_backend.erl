@@ -31,7 +31,7 @@
   drop/1,
   extra_info/1,
   inc/2,
-  init/0,
+  init/1,
   is_reached/2,
   next_id/1,
   reset_expired/2
@@ -40,61 +40,58 @@
 %% Types
 
 -export_type([
-  appctx/0,
+  ctx/0,
   id/0,
   limit/0,
   objectid/0,
   timestamp/0
 ]).
 
--type appctx()    :: any().
--type id()        :: any().
--type limit()     :: map().
+-type ctx()        :: any().
+-type id()         :: any().
+-type limit()      :: map().
 -type limit_info() :: {boolean(), integer(), integer()}.
--type objectid()  :: any().
--type operator()  :: '$lt' | '$gt'.
--type proplist()  :: list({atom(), any()}).
--type timestamp() :: erlang:timestamp().
+-type objectid()   :: any().
+-type operator()   :: '$lt' | '$gt'.
+-type proplist()   :: list({atom(), any()}).
+-type timestamp()  :: erlang:timestamp().
 
 %% API
 
--callback handle_bulk_read(objectid(), appctx()) -> list(limit()).
+-callback handle_bulk_read(objectid(), ctx()) -> list(limit()).
 
 -callback handle_bulk_read(
-      objectid(), operator(), timestamp(), appctx()) -> list(limit()).
+      objectid(), operator(), timestamp(), ctx()) -> list(limit()).
 
--callback handle_create(limit(), appctx()) -> {ok, limit()} | {error, term()}.
+-callback handle_create(limit(), ctx()) -> {ok, limit()} | {error, term()}.
 
--callback handle_delete(id(), appctx()) -> ok | {error, term()}.
+-callback handle_delete(id(), ctx()) -> ok | {error, term()}.
 
--callback handle_drop(appctx()) -> ok | {error, term()}.
+-callback handle_drop(ctx()) -> ok | {error, term()}.
 
--callback handle_inc(objectid(), appctx()) -> ok.
+-callback handle_inc(objectid(), ctx()) -> ok.
 
--callback handle_init(proplist()) -> {ok, appctx()}.
+-callback handle_init(proplist()) -> {ok, ctx()}.
 
--callback handle_next_id(appctx()) -> {ok, id()} | {error, term()}.
+-callback handle_next_id(ctx()) -> {ok, id()} | {error, term()}.
 
--callback handle_reset(id(), timestamp(), non_neg_integer(), appctx()) -> ok.
+-callback handle_reset(id(), timestamp(), non_neg_integer(), ctx()) -> ok.
 
 %% API
 
--spec init() -> {ok, appctx()}.
-init() ->
-  {ok, BackendConfig} = application:get_env(limitless, backend),
-  {ok, LimitsConfig} = application:get_env(limitless, limits),
+-spec init(list()) -> {ok, ctx()}.
+init(BackendConfig) ->
   Backend = limitless_utils:get_or_fail(name, BackendConfig),
   Configs = limitless_utils:get_or_fail(config, BackendConfig),
   {ok, BackendCtx} = Backend:handle_init(Configs),
-  {ok,
-   #{backend => Backend, backendctx => BackendCtx, limits => LimitsConfig}}.
+  {ok, #{backend => Backend, backendctx => BackendCtx}}.
 
--spec next_id(appctx()) -> {ok, id()} | {error, term()}.
+-spec next_id(ctx()) -> {ok, id()} | {error, term()}.
 next_id(#{backend := Backend, backendctx := BackendCtx}) ->
   Backend:handle_next_id(BackendCtx).
 
 -spec create(binary(), id(), objectid(), non_neg_integer(),
-             non_neg_integer(), appctx()) -> {ok, limit()} | {error, term()}.
+             non_neg_integer(), ctx()) -> {ok, limit()} | {error, term()}.
 create(Type, Id, ObjectId, Frequency, MaxRequests,
        #{backend := Backend, backendctx := BackendCtx}) ->
   Limit =  #{
@@ -108,21 +105,21 @@ create(Type, Id, ObjectId, Frequency, MaxRequests,
    },
   Backend:handle_create(Limit, BackendCtx).
 
--spec delete(id(), appctx()) -> ok | {error, term()}.
+-spec delete(id(), ctx()) -> ok | {error, term()}.
 delete(Id, #{backend := Backend, backendctx := BackendCtx}) ->
   Backend:handle_delete(Id, BackendCtx).
 
--spec drop(appctx()) -> ok | {error, term()}.
+-spec drop(ctx()) -> ok | {error, term()}.
 drop(#{backend := Backend, backendctx := BackendCtx}) ->
   Backend:handle_drop(BackendCtx).
 
--spec bulk_read(objectid(), appctx()) -> list(limit()).
+-spec bulk_read(objectid(), ctx()) -> list(limit()).
 bulk_read(ObjectId, #{backend := Backend, backendctx := BackendCtx}) ->
   Backend:handle_bulk_read(ObjectId, BackendCtx).
 
 % @doc Reset all expired limiter.
 % @end
--spec reset_expired(objectid(), appctx()) -> ok.
+-spec reset_expired(objectid(), ctx()) -> ok.
 reset_expired(ObjectId, #{backend := Backend, backendctx := BackendCtx}) ->
   Limits = Backend:handle_bulk_read(
              ObjectId, '$lt', erlang:timestamp(), BackendCtx),
@@ -130,13 +127,13 @@ reset_expired(ObjectId, #{backend := Backend, backendctx := BackendCtx}) ->
       Backend:handle_reset(Id, reset(Frequency), 0, BackendCtx)
     end, Limits).
 
--spec inc(objectid(), appctx()) -> ok.
+-spec inc(objectid(), ctx()) -> ok.
 inc(ObjectId, #{backend := Backend, backendctx := BackendCtx}) ->
   Backend:handle_inc(ObjectId, BackendCtx).
 
 % @doc Check if all limits are not reached.
 % @end
--spec is_reached(objectid(), appctx()) -> {boolean(), list(limit())}.
+-spec is_reached(objectid(), ctx()) -> {boolean(), list(limit())}.
 is_reached(ObjectId, #{backend := Backend, backendctx := BackendCtx}) ->
   Limits = Backend:handle_bulk_read(
            ObjectId, '$gt', erlang:timestamp(), BackendCtx),

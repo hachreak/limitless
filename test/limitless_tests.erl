@@ -102,15 +102,19 @@ is_reached_test_() ->
                       ]} = limitless:is_reached(ObjectId1, AppCtx),
               ?assertEqual(true, Frequency1Info < Freq1),
               ?assertEqual(true, Frequency2Info < Freq2)
-            end, lists:seq(1, MaxRequests1 - 1)),
+            end, lists:seq(0, MaxRequests1 - 1)),
           Req2 = MaxRequests2 - MaxRequests1,
-          ?assertMatch({true, [{Type1, MaxRequests1, 0, _},
+          % check remaining is always 0 and is_react is true
+          lists:foreach(fun(_) ->
+              ?assertMatch({true, [{Type1, MaxRequests1, 0, _},
                   {Type2, MaxRequests2, Req2, _}
-                 ]}, limitless:is_reached(ObjectId1, AppCtx)),
-          Req3 = MaxRequests3 - 1,
+                 ]}, limitless:is_reached(ObjectId1, AppCtx))
+            end, lists:seq(1, 10)),
+          % check limit3 is not reached
           {false,
            [{Type3, MaxRequests3,
-             Req3, Freq3Info}]} = limitless:is_reached(ObjectId3, AppCtx),
+             MaxRequests3, Freq3Info}
+           ]} = limitless:is_reached(ObjectId3, AppCtx),
           ?assertEqual(true, Freq3Info < Freq3),
           % check limit of a objectid that doesn't exists
           ?assertMatch({false, []}, limitless:is_reached(

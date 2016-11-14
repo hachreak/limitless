@@ -49,8 +49,8 @@ init() ->
 -spec is_reached(objectid(), appctx()) -> {boolean(), list(limit_info())}.
 is_reached(ObjectId, AppCtx) ->
   limitless_backend:reset_expired(ObjectId, AppCtx),
-  limitless_backend:inc(ObjectId, AppCtx),
-  {IsReached, Limits} = limitless_backend:is_reached(ObjectId, AppCtx),
+  {IsReached, Limits} = conditional_inc(
+      limitless_backend:is_reached(ObjectId, AppCtx), ObjectId, AppCtx),
   ExtraInfo = limitless_backend:extra_info(Limits),
   {IsReached, ExtraInfo}.
 
@@ -66,3 +66,10 @@ create(Type, Id, ObjectId, Frequency, MaxRequests, AppCtx) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+-spec conditional_inc({boolean(), list(limit())}, objectid(), appctx()) ->
+    {boolean(), list(limit())}.
+conditional_inc({true, Limits}, _, _) -> {true, Limits};
+conditional_inc({false, Limits}, ObjectId, AppCtx) ->
+  limitless_backend:inc(ObjectId, AppCtx),
+  {false, Limits}.

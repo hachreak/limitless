@@ -65,7 +65,8 @@ mongo_start() ->
 mongo_stop(#{ctx := Ctx}) ->
   limitless_backend:drop(Ctx),
   application:unset_env(mongopool, pools),
-  application:unset_env(limitless_backend, backend).
+  application:unset_env(limitless_backend, backend),
+  application:unset_env(limitless_backend, limits).
 
 fixture_limit_1() ->
   Type = <<"montly">>,
@@ -182,3 +183,27 @@ check_limit(Limit, Type, ObjectId, Frequency, MaxRequests) ->
   ?assertEqual(MaxRequests, maps:get(<<"max">>, Limit)),
   ?assertEqual(0, maps:get(<<"current">>, Limit)),
   ?assertEqual(true, maps:is_key(<<"expiry">>, Limit)).
+
+init_without_config_limits_test_() ->
+  {setup,
+    fun() ->
+      application:set_env(
+        limitless, backend, [
+          {name, limitless_backend_mongopool},
+          {config, [
+            {table, limitless},
+            {pool, eshpool}
+          ]}
+        ])
+    end,
+    fun(_) ->
+      application:unset_env(limitless_backend, backend)
+    end,
+    fun(_) -> [
+        fun() ->
+            ?assertMatch({ok, #{ctx := _}}, limitless:init())
+        end
+      ]
+    end
+  }.
+

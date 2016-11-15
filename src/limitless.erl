@@ -47,8 +47,7 @@
 init() ->
   {ok, BackendConfig} = application:get_env(limitless, backend),
   {ok, Ctx} = limitless_backend:init(BackendConfig),
-  {ok, LimitsConfig} = application:get_env(limitless, limits),
-  {ok, #{ctx => Ctx, limits => LimitsConfig}}.
+  {ok, set_limits(application:get_env(limitless, limits), #{ctx => Ctx})}.
 
 -spec is_reached(objectid(), appctx()) -> {boolean(), list(limit_info())}.
 is_reached(ObjectId, #{ctx := Ctx}) ->
@@ -84,3 +83,7 @@ conditional_inc({true, Limits}, _, _) -> {true, Limits};
 conditional_inc({false, Limits}, ObjectId, Ctx) ->
   limitless_backend:inc(ObjectId, Ctx),
   {false, Limits}.
+
+-spec set_limits(undefined | {ok, list()}, appctx()) -> appctx().
+set_limits(undefined, AppCtx) -> AppCtx;
+set_limits({ok, LimitsConfig}, AppCtx) -> AppCtx#{limits => LimitsConfig}.

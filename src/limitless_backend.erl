@@ -30,7 +30,7 @@
   delete/2,
   drop/1,
   extra_info/1,
-  inc/2,
+  dec/2,
   init/1,
   is_reached/2,
   next_id/1,
@@ -69,7 +69,7 @@
 
 -callback handle_drop(ctx()) -> ok | {error, term()}.
 
--callback handle_inc(objectid(), ctx()) -> ok.
+-callback handle_dec(objectid(), ctx()) -> ok.
 
 -callback handle_init(proplist()) -> {ok, ctx()}.
 
@@ -100,7 +100,7 @@ create(Type, Id, ObjectId, Frequency, MaxRequests,
     <<"objectid">> => ObjectId,
     <<"frequency">> => Frequency,
     <<"max">> => MaxRequests,
-    <<"current">> => 0,
+    <<"current">> => MaxRequests,
     <<"expiry">> => reset(Frequency)
    },
   Backend:handle_create(Limit, BackendCtx).
@@ -123,13 +123,14 @@ bulk_read(ObjectId, #{backend := Backend, backendctx := BackendCtx}) ->
 reset_expired(ObjectId, #{backend := Backend, backendctx := BackendCtx}) ->
   Limits = Backend:handle_bulk_read(
              ObjectId, '$lt', erlang:timestamp(), BackendCtx),
-  lists:foreach(fun(#{<<"_id">> := Id, <<"frequency">> := Frequency}) ->
-      Backend:handle_reset(Id, reset(Frequency), 0, BackendCtx)
+  lists:foreach(fun(#{<<"_id">> := Id, <<"frequency">> := Frequency,
+                      <<"max">> := MaxRequests}) ->
+      Backend:handle_reset(Id, reset(Frequency), MaxRequests, BackendCtx)
     end, Limits).
 
--spec inc(objectid(), ctx()) -> ok.
-inc(ObjectId, #{backend := Backend, backendctx := BackendCtx}) ->
-  Backend:handle_inc(ObjectId, BackendCtx).
+-spec dec(objectid(), ctx()) -> ok.
+dec(ObjectId, #{backend := Backend, backendctx := BackendCtx}) ->
+  Backend:handle_dec(ObjectId, BackendCtx).
 
 % @doc Check if all limits are not reached.
 % @end
@@ -138,8 +139,8 @@ is_reached(ObjectId, #{backend := Backend, backendctx := BackendCtx}) ->
   Limits = Backend:handle_bulk_read(
            ObjectId, '$gt', erlang:timestamp(), BackendCtx),
   IsReached = lists:any(
-    fun(#{<<"current">> := Current, <<"max">> := Max}) ->
-        check(Current, Max)
+    fun(#{<<"current">> := Current}) ->
+        check(Current)
     end, Limits),
   {IsReached, Limits}.
 
@@ -150,17 +151,18 @@ extra_info(Limits) ->
     fun(#{<<"current">> := Current, <<"max">> := Max,
           <<"expiry">> := End, <<"type">> := Type}) ->
         WhenReset = limitless_utils:timestamp_to_gregorian_seconds(End) - Now,
-        {Type, Max, remaining(Current, Max), WhenReset}
+        {Type, Max, remaining(Current), WhenReset}
     end, Limits).
 
 %% Private functions
 
-remaining(Current, Max) when Current >= Max -> 0;
-remaining(Current, Max) -> Max - Current.
+-spec remaining(non_neg_integer()) -> non_neg_integer().
+remaining(Current) when Current =< 0 -> 0;
+remaining(Current) -> Current.
 
--spec check(non_neg_integer(), non_neg_integer()) -> binary().
-check(Current, Max) ->
-  Current >= Max.
+-spec check(non_neg_integer()) -> binary().
+check(Current) ->
+  Current =< 0.
 
 % @doc Compute next interval computed as `now + frequency in seconds`.
 % @end

@@ -102,7 +102,7 @@ create_test_() ->
           ?assertEqual(ObjectId, maps:get(<<"objectid">>, Limit)),
           ?assertEqual(Frequency, maps:get(<<"frequency">>, Limit)),
           ?assertEqual(MaxRequests, maps:get(<<"max">>, Limit)),
-          ?assertEqual(0, maps:get(<<"current">>, Limit)),
+          ?assertEqual(MaxRequests, maps:get(<<"current">>, Limit)),
           ?assertEqual(true, maps:is_key(<<"expiry">>, Limit)),
           % check database
           [LimitWrote] = limitless_backend:bulk_read(ObjectId, Ctx),
@@ -111,7 +111,7 @@ create_test_() ->
           ?assertEqual(ObjectId, maps:get(<<"objectid">>, LimitWrote)),
           ?assertEqual(Frequency, maps:get(<<"frequency">>, LimitWrote)),
           ?assertEqual(MaxRequests, maps:get(<<"max">>, LimitWrote)),
-          ?assertEqual(0, maps:get(<<"current">>, LimitWrote)),
+          ?assertEqual(MaxRequests, maps:get(<<"current">>, LimitWrote)),
           ?assertEqual(true, maps:is_key(<<"expiry">>, LimitWrote))
         end
       ]
@@ -143,7 +143,7 @@ delete_test_() ->
     end
   }.
 
-inc_test_() ->
+dec_test_() ->
   {setup,
     fun mongo_start/0,
     fun mongo_stop/1,
@@ -161,14 +161,14 @@ inc_test_() ->
                     Type3, Id3, ObjectId3, Freq3, MaxRequests3, Ctx),
           % check objectids
           ?assertNotEqual(ObjectId1, ObjectId3),
-          % try to increment current
-          limitless_backend:inc(ObjectId1, Ctx),
+          % try to decrement current
+          limitless_backend:dec(ObjectId1, Ctx),
           % check db
           [Limit1, Limit2] = limitless_backend:bulk_read(ObjectId1, Ctx),
-          ?assertEqual(1, maps:get(<<"current">>, Limit1)),
-          ?assertEqual(1, maps:get(<<"current">>, Limit2)),
+          ?assertEqual(MaxRequests1 - 1, maps:get(<<"current">>, Limit1)),
+          ?assertEqual(MaxRequests2 - 1, maps:get(<<"current">>, Limit2)),
           [Limit3] = limitless_backend:bulk_read(ObjectId3, Ctx),
-          ?assertEqual(0, maps:get(<<"current">>, Limit3))
+          ?assertEqual(MaxRequests3, maps:get(<<"current">>, Limit3))
         end
       ]
     end
@@ -200,7 +200,7 @@ is_reached_test_() ->
                        limitless_backend:is_reached(ObjectId3, Ctx)),
           % reach the limit for Id3
           lists:foreach(fun(_) ->
-              limitless_backend:inc(ObjectId3, Ctx)
+              limitless_backend:dec(ObjectId3, Ctx)
             end, lists:seq(1, MaxRequests3)),
           ?assertMatch({false, _},
                        limitless_backend:is_reached(ObjectId1, Ctx)),
@@ -225,15 +225,17 @@ reset_expired_test_() ->
                     Type4, Id1, ObjectId1, Freq1, MaxRequests1, Ctx),
           {ok, _} = limitless_backend:create(
                     Type3, Id3, ObjectId3, Freq3, MaxRequests3, Ctx),
-          % increment counters
-          limitless_backend:inc(ObjectId1, Ctx),
-          limitless_backend:inc(ObjectId3, Ctx),
+          % decrement counters
+          limitless_backend:dec(ObjectId1, Ctx),
+          limitless_backend:dec(ObjectId3, Ctx),
           % backup
+          Current1 = MaxRequests1 - 1,
+          Current3 = MaxRequests3 - 1,
           [#{<<"expiry">> := {_, Sec1, _},
-             <<"current">> := 1}] = limitless_backend:bulk_read(
+             <<"current">> := Current1}] = limitless_backend:bulk_read(
                                       ObjectId1, Ctx),
           [#{<<"expiry">> := {_, Sec3, _},
-             <<"current">> := 1}] = limitless_backend:bulk_read(
+             <<"current">> := Current3}] = limitless_backend:bulk_read(
                                       ObjectId3, Ctx),
           % reset timers after 3 seconds
           timer:sleep(3000),
@@ -243,10 +245,11 @@ reset_expired_test_() ->
           limitless_backend:reset_expired(ObjectId3, Ctx),
           % check db
           [#{<<"expiry">> := {_, Sec1After, _},
-             <<"current">> := 0}] = limitless_backend:bulk_read(
+             <<"current">> := MaxRequests1}] = limitless_backend:bulk_read(
                                       ObjectId1, Ctx),
+          NewCurrent3 = MaxRequests3 - 1,
           [#{<<"expiry">> := {_, Sec3After, _},
-             <<"current">> := 1}] = limitless_backend:bulk_read(
+             <<"current">> := NewCurrent3}] = limitless_backend:bulk_read(
                                       ObjectId3, Ctx),
           % check is resetted
           ?assertEqual(true, Sec1 < Sec1After),
@@ -282,13 +285,13 @@ extra_info_test_() ->
                     Type3, Id3, ObjectId3, Freq3, MaxRequests3, Ctx),
           timer:sleep(1000),
           lists:foreach(fun(Index) ->
-              % increment counters
-              limitless_backend:inc(ObjectId1, Ctx),
+              % decrement counters
+              limitless_backend:dec(ObjectId1, Ctx),
               check_info(Type1, ObjectId1, Freq1, MaxRequests1, Index, Ctx),
               check_info(
                 Type3, ObjectId3, Freq3, MaxRequests3, MaxRequests3, Ctx)
             end, lists:seq(MaxRequests1 - 1, 1, -1)),
-          limitless_backend:inc(ObjectId1, Ctx),
+          limitless_backend:dec(ObjectId1, Ctx),
           {true, _} = limitless_backend:is_reached(ObjectId1, Ctx),
           {false, _} = limitless_backend:is_reached(ObjectId3, Ctx),
           ok

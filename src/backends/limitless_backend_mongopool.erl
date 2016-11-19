@@ -31,7 +31,7 @@
   handle_delete/2,
   handle_drop/1,
   handle_next_id/1,
-  handle_inc/2,
+  handle_dec/2,
   handle_init/1,
   handle_reset/4
 ]).
@@ -89,14 +89,14 @@ handle_bulk_read(ObjectId, Operator, Expiry, AppCtx) ->
        {<<"expiry">>, {Operator, Expiry}}
     ]}, AppCtx).
 
-% @doc increment counter: add a new record {id, when}
+% @doc decrement counter: add a new record {id, when}
 % @end
--spec handle_inc(objectid(), appctx()) -> ok.
-handle_inc(ObjectId, #{pool := Pool, table := Table}=AppCtx) ->
+-spec handle_dec(objectid(), appctx()) -> ok.
+handle_dec(ObjectId, #{pool := Pool, table := Table}=AppCtx) ->
   lists:foreach(fun(#{<<"_id">> := Id}) ->
       mongopool_app:update(
         Pool, Table, #{<<"_id">> => Id},
-        {<<"$inc">>, #{<<"current">> => 1}})
+        {<<"$inc">>, #{<<"current">> => -1}})
     end, handle_bulk_read(ObjectId, AppCtx)),
   ok.
 

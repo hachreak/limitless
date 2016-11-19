@@ -181,7 +181,7 @@ check_limit(Limit, Type, ObjectId, Frequency, MaxRequests) ->
   ?assertEqual(ObjectId, maps:get(<<"objectid">>, Limit)),
   ?assertEqual(Frequency, maps:get(<<"frequency">>, Limit)),
   ?assertEqual(MaxRequests, maps:get(<<"max">>, Limit)),
-  ?assertEqual(0, maps:get(<<"current">>, Limit)),
+  ?assertEqual(MaxRequests, maps:get(<<"current">>, Limit)),
   ?assertEqual(true, maps:is_key(<<"expiry">>, Limit)).
 
 init_without_config_limits_test_() ->

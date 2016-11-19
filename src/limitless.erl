@@ -52,7 +52,7 @@ init() ->
 -spec is_reached(objectid(), appctx()) -> {boolean(), list(limit_info())}.
 is_reached(ObjectId, #{ctx := Ctx}) ->
   limitless_backend:reset_expired(ObjectId, Ctx),
-  {IsReached, Limits} = conditional_inc(
+  {IsReached, Limits} = conditional_dec(
       limitless_backend:is_reached(ObjectId, Ctx), ObjectId, Ctx),
   ExtraInfo = limitless_backend:extra_info(Limits),
   {IsReached, ExtraInfo}.
@@ -77,11 +77,11 @@ setup(ObjectId, Group, #{ctx := Ctx, limits := LimitsConfig}) ->
 %% Internal functions
 %%====================================================================
 
--spec conditional_inc({boolean(), list(limit())}, objectid(), appctx()) ->
+-spec conditional_dec({boolean(), list(limit())}, objectid(), appctx()) ->
     {boolean(), list(limit())}.
-conditional_inc({true, Limits}, _, _) -> {true, Limits};
-conditional_inc({false, Limits}, ObjectId, Ctx) ->
-  limitless_backend:inc(ObjectId, Ctx),
+conditional_dec({true, Limits}, _, _) -> {true, Limits};
+conditional_dec({false, Limits}, ObjectId, Ctx) ->
+  limitless_backend:dec(ObjectId, Ctx),
   {false, Limits}.
 
 -spec set_limits(undefined | {ok, list()}, appctx()) -> appctx().

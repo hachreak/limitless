@@ -34,7 +34,10 @@ mongo_start() ->
                    {database, <<"test-eunit-db">>},
                    {host, db}
                   ]}
-    ]),
+    ]).
+
+app_start() ->
+  mongo_start(),
   application:set_env(
     limitless, backend, [
       {name, limitless_backend_mongopool},
@@ -63,10 +66,13 @@ mongo_start() ->
   AppCtx.
 
 mongo_stop(#{ctx := Ctx}) ->
-  limitless_backend:drop(Ctx),
   application:unset_env(mongopool, pools),
-  application:unset_env(limitless_backend, backend),
-  application:unset_env(limitless_backend, limits).
+  limitless_backend:drop(Ctx).
+
+app_stop(AppCtx) ->
+  mongo_stop(AppCtx),
+  application:unset_env(limitless, backend),
+  application:unset_env(limitless, limits).
 
 fixture_limit_1() ->
   Type = <<"montly">>,
@@ -94,8 +100,8 @@ fixture_limit_3() ->
 
 setup_test_() ->
   {setup,
-    fun mongo_start/0,
-    fun mongo_stop/1,
+    fun app_start/0,
+    fun app_stop/1,
     fun(#{ctx := Ctx}=AppCtx) -> [
         fun() ->
           ObjectId = <<"pippo">>,
@@ -115,8 +121,8 @@ setup_test_() ->
 
 is_reached_test_() ->
   {setup,
-    fun mongo_start/0,
-    fun mongo_stop/1,
+    fun app_start/0,
+    fun app_stop/1,
     fun(#{ctx := Ctx}=AppCtx) -> [
         fun() ->
           {Type1, Id1, ObjectId1, Freq1, MaxRequests1} = fixture_limit_1(),
@@ -201,7 +207,8 @@ init_without_config_limits_test_() ->
     end,
     fun(_) -> [
         fun() ->
-            ?assertMatch({ok, #{ctx := _}}, limitless:init())
+            {ok, Init} = limitless:init(),
+            ?assertEqual(true, not maps:is_key(limits, Init))
         end
       ]
     end

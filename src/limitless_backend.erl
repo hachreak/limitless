@@ -43,18 +43,19 @@
   ctx/0,
   id/0,
   limit/0,
-  objectid/0,
-  timestamp/0
+  objectid/0
 ]).
 
--type ctx()        :: any().
--type id()         :: any().
--type limit()      :: map().
--type limit_info() :: {boolean(), integer(), integer()}.
--type objectid()   :: any().
--type operator()   :: '$lt' | '$gt'.
--type proplist()   :: list({atom(), any()}).
--type timestamp()  :: erlang:timestamp().
+-type ctx()         :: map().
+-type id()          :: any().
+-type limit()       :: map().
+-type limit_info()  :: {binary(), non_neg_integer(),
+                        non_neg_integer(), non_neg_integer()}.
+-type limits_info() :: list(limit_info()).
+-type objectid()    :: any().
+-type operator()    :: '$lt' | '$gt'.
+-type proplist()    :: list({atom(), any()}).
+-type timestamp()   :: erlang:timestamp().
 
 %% API
 
@@ -144,7 +145,7 @@ is_reached(ObjectId, #{backend := Backend, backendctx := BackendCtx}) ->
     end, Limits),
   {IsReached, Limits}.
 
--spec extra_info(list(limit())) -> limit_info().
+-spec extra_info(list(limit())) -> limits_info().
 extra_info(Limits) ->
   Now = limitless_utils:timestamp_to_gregorian_seconds(erlang:timestamp()),
   lists:map(
@@ -160,7 +161,7 @@ extra_info(Limits) ->
 remaining(Current) when Current =< 0 -> 0;
 remaining(Current) -> Current.
 
--spec check(non_neg_integer()) -> binary().
+-spec check(integer()) -> binary().
 check(Current) ->
   Current =< 0.
 

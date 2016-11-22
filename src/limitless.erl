@@ -31,12 +31,14 @@
 
 %% Types
 
--type appctx()     :: #{ctx => ctx(), limits => list()}.
--type ctx()        :: limitless_backend:ctx().
--type id()         :: limitless_backend:id().
--type limit()      :: limitless_backend:limit().
--type limit_info() :: limitless_backend:limit_info().
--type objectid()   :: limitless_backend:objectid().
+-type appctx()       :: #{ctx => ctx(), limits => list()}.
+-type ctx()          :: limitless_backend:ctx().
+-type id()           :: limitless_backend:id().
+-type limit()        :: limitless_backend:limit().
+-type limit_extra()  :: {boolean(), objectid(), limits_info()}.
+-type limits_extra() :: list(limit_extra()).
+-type limits_info()  :: limitless_backend:limits_info().
+-type objectid()     :: limitless_backend:objectid().
 
 
 %%====================================================================
@@ -49,13 +51,19 @@ init() ->
   {ok, Ctx} = limitless_backend:init(BackendConfig),
   {ok, set_limits(application:get_env(limitless, limits), #{ctx => Ctx})}.
 
--spec is_reached(objectid(), appctx()) -> {boolean(), list(limit_info())}.
-is_reached(ObjectId, #{ctx := Ctx}) ->
-  limitless_backend:reset_expired(ObjectId, Ctx),
-  {IsReached, Limits} = conditional_dec(
-      limitless_backend:is_reached(ObjectId, Ctx), ObjectId, Ctx),
-  ExtraInfo = limitless_backend:extra_info(Limits),
-  {IsReached, ExtraInfo}.
+-spec is_reached(list(objectid()), appctx()) -> {boolean(), limits_extra()}.
+is_reached(ObjectIds, #{ctx := Ctx}) ->
+  InfoObjects = lists:map(fun(ObjectId) ->
+      % reset limits
+      limitless_backend:reset_expired(ObjectId, Ctx),
+      % check if limit is reached
+      {Reached, Limits} = limitless_backend:is_reached(ObjectId, Ctx),
+      ExtraInfo = limitless_backend:extra_info(Limits),
+      {Reached, ObjectId, ExtraInfo}
+    end, ObjectIds),
+  % consume the first token available
+  IsReached = consume(lists:keyfind(false, 1, InfoObjects), Ctx),
+  {IsReached, InfoObjects}.
 
 -spec next_id(appctx()) -> {ok, id()} | {error, term()}.
 next_id(#{ctx := Ctx}) ->
@@ -63,6 +71,8 @@ next_id(#{ctx := Ctx}) ->
 
 % @doc Setup limmits from configuration: initialize in database.
 % @end
+-spec setup(objectid(), atom(), appctx()) ->
+    list({ok, limit()} | {error, term()}).
 setup(ObjectId, Group, #{ctx := Ctx, limits := LimitsConfig}) ->
   lists:map(fun(Config) ->
       Type = limitless_utils:get_or_fail(type, Config),
@@ -77,12 +87,11 @@ setup(ObjectId, Group, #{ctx := Ctx, limits := LimitsConfig}) ->
 %% Internal functions
 %%====================================================================
 
--spec conditional_dec({boolean(), list(limit())}, objectid(), appctx()) ->
-    {boolean(), list(limit())}.
-conditional_dec({true, Limits}, _, _) -> {true, Limits};
-conditional_dec({false, Limits}, ObjectId, Ctx) ->
-  limitless_backend:dec(ObjectId, Ctx),
-  {false, Limits}.
+-spec consume({false, objectid(), any()} | false, ctx()) -> boolean().
+consume(false, _) -> true;
+consume({false, Token, _}, Ctx) ->
+  limitless_backend:dec(Token, Ctx),
+  false.
 
 -spec set_limits(undefined | {ok, list()}, appctx()) -> appctx().
 set_limits(undefined, AppCtx) -> AppCtx;

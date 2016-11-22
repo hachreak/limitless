@@ -98,6 +98,14 @@ fixture_limit_3() ->
   MaxRequests = 20,
   {Type, Id, ObjectId, Frequency, MaxRequests}.
 
+fixture_expired_limit_4() ->
+  Type = <<"daily">>,
+  Id = <<"limit-4">>,
+  ObjectId = <<"obj-4">>,
+  Frequency = 1,
+  MaxRequests = 10,
+  {Type, Id, ObjectId, Frequency, MaxRequests}.
+
 setup_test_() ->
   {setup,
     fun app_start/0,
@@ -136,33 +144,117 @@ is_reached_test_() ->
           {ok, _} = limitless_backend:create(
                     Type3, Id3, ObjectId3, Freq3, MaxRequests3, Ctx),
           % reach the limit for Id1
-          % limitless:is_reached(ObjectId1, AppCtx),
           timer:sleep(1000),
           lists:foreach(fun(Index) ->
               Req1 = MaxRequests1 - Index,
               Req2 = MaxRequests2 - Index,
-              {false, [{Type1, MaxRequests1, Req1, Frequency1Info},
-                       {Type2, MaxRequests2, Req2, Frequency2Info}
-                      ]} = limitless:is_reached(ObjectId1, AppCtx),
+              {false, [
+                {false, ObjectId1, [
+                  {Type1, MaxRequests1, Req1, Frequency1Info},
+                  {Type2, MaxRequests2, Req2, Frequency2Info}
+                ]}
+              ]} = limitless:is_reached([ObjectId1], AppCtx),
               ?assertEqual(true, Frequency1Info < Freq1),
               ?assertEqual(true, Frequency2Info < Freq2)
             end, lists:seq(0, MaxRequests1 - 1)),
           Req2 = MaxRequests2 - MaxRequests1,
           % check remaining is always 0 and is_react is true
           lists:foreach(fun(_) ->
-              ?assertMatch({true, [{Type1, MaxRequests1, 0, _},
-                  {Type2, MaxRequests2, Req2, _}
-                 ]}, limitless:is_reached(ObjectId1, AppCtx))
+              ?assertMatch({true, [
+                  {true, ObjectId1, [
+                    {Type1, MaxRequests1, 0, _},
+                    {Type2, MaxRequests2, Req2, _}
+                  ]}
+                ]}, limitless:is_reached([ObjectId1], AppCtx))
             end, lists:seq(1, 10)),
           % check limit3 is not reached
-          {false,
-           [{Type3, MaxRequests3,
-             MaxRequests3, Freq3Info}
-           ]} = limitless:is_reached(ObjectId3, AppCtx),
+          {false, [
+            {false, ObjectId3,
+              [{Type3, MaxRequests3, MaxRequests3, Freq3Info}]}
+           ]} = limitless:is_reached([ObjectId3], AppCtx),
           ?assertEqual(true, Freq3Info < Freq3),
           % check limit of a objectid that doesn't exists
-          ?assertMatch({false, []}, limitless:is_reached(
-                                     <<"doesnt-exist">>, AppCtx))
+          ?assertMatch(
+            {false,
+              [{false, <<"doesnt-exist">>, []}]
+            }, limitless:is_reached([<<"doesnt-exist">>], AppCtx))
+        end
+      ]
+    end
+  }.
+
+is_reached_multiple_test_() ->
+  {setup,
+    fun app_start/0,
+    fun app_stop/1,
+    fun(#{ctx := Ctx}=AppCtx) -> [
+        fun() ->
+          {Type1, Id1, ObjectId1, Freq1, MaxRequests1} = fixture_limit_1(),
+          {Type2, Id2, ObjectId1, Freq2, MaxRequests2} = fixture_limit_2(),
+          {Type3, Id3, ObjectId3, Freq3, MaxRequests3} = fixture_limit_3(),
+          {Type4, Id4, ObjectId4,
+           Freq4, MaxRequests4} = fixture_expired_limit_4(),
+          % create limits
+          {ok, _} = limitless_backend:create(
+                    Type1, Id1, ObjectId1, Freq1, MaxRequests1, Ctx),
+          {ok, _} = limitless_backend:create(
+                    Type2, Id2, ObjectId1, Freq2, MaxRequests2, Ctx),
+          {ok, _} = limitless_backend:create(
+                    Type3, Id3, ObjectId3, Freq3, MaxRequests3, Ctx),
+          {ok, _} = limitless_backend:create(
+                    Type4, Id4, ObjectId4, Freq4, MaxRequests4, Ctx),
+          % reach the limit for Id1
+          timer:sleep(1500),
+          lists:foreach(fun(Index) ->
+              Req1 = MaxRequests1 - Index,
+              Req2 = MaxRequests2 - Index,
+              {false, [
+                {false, ObjectId1, [
+                  {Type1, MaxRequests1, Req1, Frequency1Info},
+                  {Type2, MaxRequests2, Req2, Frequency2Info}
+                ]},
+                {false, ObjectId3, [
+                  {Type3, MaxRequests3, MaxRequests3, Frequency3Info}
+                ]},
+                {false, ObjectId4, [
+                  {Type4, MaxRequests4, MaxRequests4, Frequency4Info}
+                ]}
+              ]} = limitless:is_reached(
+                     [ObjectId1, ObjectId3, ObjectId4], AppCtx),
+              ?assertEqual(true, Frequency1Info < Freq1),
+              ?assertEqual(true, Frequency2Info < Freq2),
+              ?assertEqual(true, Frequency3Info < Freq3),
+              ?assertEqual(true, Frequency4Info =< Freq4)
+            end, lists:seq(0, MaxRequests1 - 1)),
+          Req2 = MaxRequests2 - MaxRequests1,
+          % check remaining is always 0 and is_react is true
+          lists:foreach(fun(Index) ->
+              Req3 = MaxRequests3 - Index,
+              ?assertMatch({false, [
+                  {true, ObjectId1, [
+                    {Type1, MaxRequests1, 0, _},
+                    {Type2, MaxRequests2, Req2, _}
+                  ]},
+                  {false, ObjectId3, [
+                    {Type3, MaxRequests3, Req3, _}
+                  ]}
+                ]}, limitless:is_reached([ObjectId1, ObjectId3], AppCtx))
+            end, lists:seq(0, MaxRequests3 - 1)),
+          % check limit3 is not reached
+          {true, [
+            {true, ObjectId1, [
+              {Type1, MaxRequests1, 0, _},
+              {Type2, MaxRequests2, _, _}
+            ]},
+            {true, ObjectId3,
+              [{Type3, MaxRequests3, 0, Freq3Info}]}
+           ]} = limitless:is_reached([ObjectId1, ObjectId3], AppCtx),
+          ?assertEqual(true, Freq3Info < Freq3),
+          % check limit of a objectid that doesn't exists
+          ?assertMatch(
+            {false,
+              [{false, <<"doesnt-exist">>, []}]
+            }, limitless:is_reached([<<"doesnt-exist">>], AppCtx))
         end
       ]
     end

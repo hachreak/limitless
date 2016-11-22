@@ -39,12 +39,12 @@
 %% Types
 
 -type appctx()    :: #{pool => atom(), table => atom()}.
--type id()        :: limitless:id().
--type limit()     :: limitless:limit().
--type objectid()  :: limitless:objectid().
--type operator()  :: limitless:operator().
--type proplist()  :: limitless:proplist().
--type timestamp() :: limitless:timestamp().
+-type id()        :: limitless_backend:id().
+-type limit()     :: limitless_backend:limit().
+-type objectid()  :: limitless_backend:objectid().
+-type operator()  :: limitless_backend:operator().
+-type proplist()  :: limitless_backend:proplist().
+-type timestamp() :: limitless_backend:timestamp().
 
 %% API
 

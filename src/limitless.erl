@@ -51,7 +51,8 @@ init() ->
   {ok, Ctx} = limitless_backend:init(BackendConfig),
   {ok, set_limits(application:get_env(limitless, limits), #{ctx => Ctx})}.
 
--spec is_reached(list(objectid()), appctx()) -> {boolean(), limits_extra()}.
+-spec is_reached(list(objectid()), appctx()) ->
+    {boolean(), objectid() | notfound, limits_extra()}.
 is_reached(ObjectIds, #{ctx := Ctx}) ->
   InfoObjects = lists:map(fun(ObjectId) ->
       % reset limits
@@ -62,8 +63,8 @@ is_reached(ObjectIds, #{ctx := Ctx}) ->
       {Reached, ObjectId, ExtraInfo}
     end, ObjectIds),
   % consume the first token available
-  IsReached = consume(lists:keyfind(false, 1, InfoObjects), Ctx),
-  {IsReached, InfoObjects}.
+  {IsReached, ObjectId} = consume(lists:keyfind(false, 1, InfoObjects), Ctx),
+  {IsReached, ObjectId, InfoObjects}.
 
 -spec next_id(appctx()) -> {ok, id()} | {error, term()}.
 next_id(#{ctx := Ctx}) ->
@@ -87,11 +88,12 @@ setup(ObjectId, Group, #{ctx := Ctx, limits := LimitsConfig}) ->
 %% Internal functions
 %%====================================================================
 
--spec consume({false, objectid(), any()} | false, ctx()) -> boolean().
-consume(false, _) -> true;
-consume({false, Token, _}, Ctx) ->
-  limitless_backend:dec(Token, Ctx),
-  false.
+-spec consume({false, objectid(), any()} | false, ctx()) ->
+    {boolean(), objectid() | notfound}.
+consume(false, _) -> {true, notfound};
+consume({false, ObjectId, _}, Ctx) ->
+  limitless_backend:dec(ObjectId, Ctx),
+  {false, ObjectId}.
 
 -spec set_limits(undefined | {ok, list()}, appctx()) -> appctx().
 set_limits(undefined, AppCtx) -> AppCtx;

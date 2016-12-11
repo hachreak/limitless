@@ -148,7 +148,7 @@ is_reached_test_() ->
           lists:foreach(fun(Index) ->
               Req1 = MaxRequests1 - Index,
               Req2 = MaxRequests2 - Index,
-              {false, [
+              {false, ObjectId1, [
                 {false, ObjectId1, [
                   {Type1, MaxRequests1, Req1, Frequency1Info},
                   {Type2, MaxRequests2, Req2, Frequency2Info}
@@ -160,7 +160,7 @@ is_reached_test_() ->
           Req2 = MaxRequests2 - MaxRequests1,
           % check remaining is always 0 and is_react is true
           lists:foreach(fun(_) ->
-              ?assertMatch({true, [
+              ?assertMatch({true, notfound, [
                   {true, ObjectId1, [
                     {Type1, MaxRequests1, 0, _},
                     {Type2, MaxRequests2, Req2, _}
@@ -168,14 +168,14 @@ is_reached_test_() ->
                 ]}, limitless:is_reached([ObjectId1], AppCtx))
             end, lists:seq(1, 10)),
           % check limit3 is not reached
-          {false, [
+          {false, ObjectId3, [
             {false, ObjectId3,
               [{Type3, MaxRequests3, MaxRequests3, Freq3Info}]}
            ]} = limitless:is_reached([ObjectId3], AppCtx),
           ?assertEqual(true, Freq3Info < Freq3),
           % check limit of a objectid that doesn't exists
           ?assertMatch(
-            {false,
+            {false, <<"doesnt-exist">>,
               [{false, <<"doesnt-exist">>, []}]
             }, limitless:is_reached([<<"doesnt-exist">>], AppCtx))
         end
@@ -208,7 +208,7 @@ is_reached_multiple_test_() ->
           lists:foreach(fun(Index) ->
               Req1 = MaxRequests1 - Index,
               Req2 = MaxRequests2 - Index,
-              {false, [
+              {false, ObjectId1, [
                 {false, ObjectId1, [
                   {Type1, MaxRequests1, Req1, Frequency1Info},
                   {Type2, MaxRequests2, Req2, Frequency2Info}
@@ -230,7 +230,7 @@ is_reached_multiple_test_() ->
           % check remaining is always 0 and is_react is true
           lists:foreach(fun(Index) ->
               Req3 = MaxRequests3 - Index,
-              ?assertMatch({false, [
+              ?assertMatch({false, ObjectId3, [
                   {true, ObjectId1, [
                     {Type1, MaxRequests1, 0, _},
                     {Type2, MaxRequests2, Req2, _}
@@ -241,7 +241,7 @@ is_reached_multiple_test_() ->
                 ]}, limitless:is_reached([ObjectId1, ObjectId3], AppCtx))
             end, lists:seq(0, MaxRequests3 - 1)),
           % check limit3 is not reached
-          {true, [
+          {true, notfound, [
             {true, ObjectId1, [
               {Type1, MaxRequests1, 0, _},
               {Type2, MaxRequests2, _, _}
@@ -252,7 +252,7 @@ is_reached_multiple_test_() ->
           ?assertEqual(true, Freq3Info < Freq3),
           % check limit of a objectid that doesn't exists
           ?assertMatch(
-            {false,
+            {false, <<"doesnt-exist">>,
               [{false, <<"doesnt-exist">>, []}]
             }, limitless:is_reached([<<"doesnt-exist">>], AppCtx))
         end

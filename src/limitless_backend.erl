@@ -161,7 +161,7 @@ extra_info(Limits) ->
 remaining(Current) when Current =< 0 -> 0;
 remaining(Current) -> Current.
 
--spec check(integer()) -> binary().
+-spec check(integer()) -> boolean().
 check(Current) ->
   Current =< 0.
 

@@ -25,6 +25,7 @@
 -export([
   init/0,
   is_reached/2,
+  is_reached_multiple/2,
   next_id/1,
   setup/3
 ]).
@@ -53,18 +54,27 @@ init() ->
 
 -spec is_reached(list(objectid()), appctx()) ->
     {boolean(), objectid() | notfound, limits_extra()}.
-is_reached(ObjectIds, #{ctx := Ctx}) ->
-  InfoObjects = lists:map(fun(ObjectId) ->
-      % reset limits
-      limitless_backend:reset_expired(ObjectId, Ctx),
-      % check if limit is reached
-      {Reached, Limits} = limitless_backend:is_reached(ObjectId, Ctx),
-      ExtraInfo = limitless_backend:extra_info(Limits),
-      {Reached, ObjectId, ExtraInfo}
-    end, ObjectIds),
-  % consume the first token available
+% @doc consume the first objectid available.
+% @end
+is_reached(ObjectIds, #{ctx := Ctx}=AppCtx) ->
+  InfoObjects = get_consumables(ObjectIds, AppCtx),
   {IsReached, ObjectId} = consume(lists:keyfind(false, 1, InfoObjects), Ctx),
   {IsReached, ObjectId, InfoObjects}.
+
+-spec is_reached_multiple(list(objectid()), appctx()) ->
+  {boolean(), list({objectid(), limits_extra()})}.
+% @doc consume the every objectids available.
+% @end
+is_reached_multiple(ObjectIds, #{ctx := Ctx}=AppCtx) ->
+  InfoObjects = get_consumables(ObjectIds, AppCtx),
+  ConsumedIds = lists:filtermap(
+    fun({false, ObjectId, _}) ->
+        limitless_backend:dec(ObjectId, Ctx),
+        {true, ObjectId};
+       (_) -> false
+    end, InfoObjects),
+  IsReached = ConsumedIds == [],
+  {IsReached, ConsumedIds, InfoObjects}.
 
 -spec next_id(appctx()) -> {ok, id()} | {error, term()}.
 next_id(#{ctx := Ctx}) ->
@@ -87,6 +97,18 @@ setup(ObjectId, Group, #{ctx := Ctx, limits := LimitsConfig}) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+-spec get_consumables(list(objectid()), appctx()) ->
+    list({boolean(), objectid(), limits_info()}).
+get_consumables(ObjectIds, #{ctx := Ctx}) ->
+  lists:map(fun(ObjectId) ->
+      % reset limits
+      limitless_backend:reset_expired(ObjectId, Ctx),
+      % check if limit is reached
+      {Reached, Limits} = limitless_backend:is_reached(ObjectId, Ctx),
+      ExtraInfo = limitless_backend:extra_info(Limits),
+      {Reached, ObjectId, ExtraInfo}
+    end, ObjectIds).
 
 -spec consume({false, objectid(), any()} | false, ctx()) ->
     {boolean(), objectid() | notfound}.

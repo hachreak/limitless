@@ -188,6 +188,133 @@ is_reached_multiple_test_() ->
     fun app_start/0,
     fun app_stop/1,
     fun(#{ctx := Ctx}=AppCtx) -> [
+      fun() ->
+        {Type1, Id1, ObjectId1, Freq1, MaxRequests1} = fixture_limit_1(),
+        {Type2, Id2, ObjectId1, Freq2, MaxRequests2} = fixture_limit_2(),
+        {Type3, Id3, ObjectId3, Freq3, MaxRequests3} = fixture_limit_3(),
+        {Type4, Id4, ObjectId4,
+         Freq4, MaxRequests4} = fixture_expired_limit_4(),
+        % create limits
+        {ok, _} = limitless_backend:create(
+                  Type1, Id1, ObjectId1, Freq1, MaxRequests1, Ctx),
+        {ok, _} = limitless_backend:create(
+                  Type2, Id2, ObjectId1, Freq2, MaxRequests2, Ctx),
+        {ok, _} = limitless_backend:create(
+                  Type3, Id3, ObjectId3, Freq3, MaxRequests3, Ctx),
+        {ok, _} = limitless_backend:create(
+                  Type4, Id4, ObjectId4, Freq4, MaxRequests4, Ctx),
+        timer:sleep(1500),
+        % use objectid1, ObjectId3
+        Req1 = MaxRequests1 - 1,
+        Req2 = MaxRequests2 - 1,
+        Req3 = MaxRequests3 - 1,
+        % FIXME
+        ?assertMatch(
+          {false, [ObjectId1, ObjectId3], [
+            {false, ObjectId1, [
+                                   % FIXME MaxRequests1 - 1
+              {Type1, MaxRequests1, MaxRequests1, _},
+              {Type2, MaxRequests2, MaxRequests2, _}
+            ]},
+            {false, ObjectId3, [
+              {Type3, MaxRequests3, MaxRequests3, _}
+            ]}
+          ]}, limitless:is_reached_multiple([ObjectId1, ObjectId3], AppCtx)),
+        % /FIXME
+        ?assertMatch(
+          {false, [ObjectId1, ObjectId3], [
+            {false, ObjectId1, [
+              {Type1, MaxRequests1, Req1, _},
+              {Type2, MaxRequests2, Req2, _}
+            ]},
+            {false, ObjectId3, [
+              {Type3, MaxRequests3, Req3, _}
+            ]}
+          ]}, limitless:is_reached_multiple([ObjectId1, ObjectId3], AppCtx)),
+        Req32 = Req3 - 1,
+        Req12 = Req1 - 1,
+        Req22 = Req2 - 1,
+        ?assertMatch(
+          {false, [ObjectId1, ObjectId3], [
+            {false, ObjectId1, [
+              {Type1, MaxRequests1, Req12, _},
+              {Type2, MaxRequests2, Req22, _}
+            ]},
+            {false, ObjectId3, [
+              {Type3, MaxRequests3, Req32, _}
+            ]}
+          ]}, limitless:is_reached_multiple([ObjectId1, ObjectId3], AppCtx)),
+        Req33 = Req32 - 1,
+        ?assertMatch(
+          {false, [ObjectId4, ObjectId3], [
+            {false, ObjectId4, [
+              {Type4, MaxRequests4, MaxRequests4, _}
+            ]},
+            {false, ObjectId3, [
+              {Type3, MaxRequests3, Req33, _}
+            ]}
+          ]}, limitless:is_reached_multiple([ObjectId4, ObjectId3], AppCtx)),
+        Req34 = Req33 - 1,
+        timer:sleep(1500),
+        ?assertMatch(
+          {false, [ObjectId4, ObjectId3], [
+            {false, ObjectId4, [
+              {Type4, MaxRequests4, MaxRequests4, _}
+            ]},
+            {false, ObjectId3, [
+              {Type3, MaxRequests3, Req34, _}
+            ]}
+          ]}, limitless:is_reached_multiple([ObjectId4, ObjectId3], AppCtx)),
+        lists:foreach(fun(Index) ->
+          NewReq1 = Req12 - Index,
+          NewReq2 = Req22 - Index,
+          NewReq3 = Req34 - Index,
+          ?assertMatch(
+            {false, [ObjectId1, ObjectId3], [
+              {false, ObjectId1, [
+                {Type1, MaxRequests1, NewReq1, _},
+                {Type2, MaxRequests2, NewReq2, _}
+              ]},
+              {false, ObjectId3, [
+                {Type3, MaxRequests3, NewReq3, _}
+              ]}
+            ]}, limitless:is_reached_multiple([ObjectId1, ObjectId3], AppCtx))
+
+          end, lists:seq(1, Req12 - 1)),
+        Req35 = Req34 - Req12 + 1,
+        Req23 = Req22 - Req12,
+        lists:foreach(fun(Index) ->
+          NewReq3 = Req35 - Index,
+          ?assertMatch(
+            {false, [ObjectId3], [
+              {true, ObjectId1, [
+                {Type1, MaxRequests1, 0, _},
+                {Type2, MaxRequests2, Req23, _}
+              ]},
+              {false, ObjectId3, [
+                {Type3, MaxRequests3, NewReq3, _}
+              ]}
+            ]}, limitless:is_reached_multiple([ObjectId1, ObjectId3], AppCtx))
+          end, lists:seq(1, Req35 - 1)),
+        ?assertMatch(
+          {true, [], [
+            {true, ObjectId1, [
+              {Type1, MaxRequests1, 0, _},
+              {Type2, MaxRequests2, Req23, _}
+            ]},
+            {true, ObjectId3, [
+              {Type3, MaxRequests3, 0, _}
+            ]}
+          ]}, limitless:is_reached_multiple([ObjectId1, ObjectId3], AppCtx))
+      end
+    ]end
+  }.
+
+is_reached_many_objectids_test_() ->
+  {setup,
+    fun app_start/0,
+    fun app_stop/1,
+    fun(#{ctx := Ctx}=AppCtx) -> [
         fun() ->
           {Type1, Id1, ObjectId1, Freq1, MaxRequests1} = fixture_limit_1(),
           {Type2, Id2, ObjectId1, Freq2, MaxRequests2} = fixture_limit_2(),

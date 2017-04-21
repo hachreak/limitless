@@ -1,6 +1,8 @@
 limitless
 =========
 
+[![Build Status](https://travis-ci.org/hachreak/limitless.svg?branch=master)](https://travis-ci.org/hachreak/limitless)
+
 Limitless is a lightweight, generic library for Erlang to quickly integrate a
 rate-limiter inside your application.
 
@@ -113,4 +115,4 @@ X-RateLimit-Token-15min-Reset: 750
 Status
 ------
 
-Stable release (v1.0.0).
+Stable release.

@@ -32,7 +32,7 @@ mongo_start() ->
                 {max_overflow, 30}
                ], [
                    {database, <<"test-eunit-db">>},
-                   {host, db}
+                   {host, os:getenv("DB_HOST", db)}
                   ]}
     ]),
   application:set_env(

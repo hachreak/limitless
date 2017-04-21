@@ -25,6 +25,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 mongo_start() ->
+  error_logger:error_msg("MONGO: ~p~n", [os:getenv("DB_HOST", db)]),
   application:set_env(mongopool, pools,
     [
      {eshpool, [
@@ -32,7 +33,7 @@ mongo_start() ->
                 {max_overflow, 30}
                ], [
                    {database, <<"test-eunit-db">>},
-                   {host, db}
+                   {host, os:getenv("DB_HOST", db)}
                   ]}
     ]).
 

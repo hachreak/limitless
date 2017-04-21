@@ -1,0 +1,19 @@
+language: erlang
+
+otp_release:
+  - 18.0
+  - 18.1
+  - 18.2
+  - 18.3
+  - 19.0
+  - 19.1
+  - 19.2
+
+env:
+  - DB_HOST=127.0.0.1
+
+install:
+  - sh ./.travis.rebar3.sh
+  - sh ./.travis.mongodb.sh
+
+script: "./run-tests.sh"

@@ -1,0 +1,19 @@
+{application, example_mongodb_backend,
+ [{description, "An OTP application"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {mod, {example_mongodb_backend_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    cowboy,
+    limitless,
+    mongopool
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {maintainers, []},
+  {licenses, []},
+  {links, []}
+ ]}.

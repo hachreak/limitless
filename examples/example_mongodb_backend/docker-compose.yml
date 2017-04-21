@@ -1,0 +1,27 @@
+version: '2'
+
+services:
+  # Web UI Server
+  web:
+    build: ./
+    command: /var/www/start.sh
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./:/var/www:rw
+    links:
+      - mongo:db
+  # DB Server
+  mongo:
+    image: mongo:3.4
+    restart: always
+    expose:
+      - "27017"
+    command: --smallfiles --rest --dbpath /data/db
+    volumes:
+      - dbdata:/data/db
+
+volumes:
+  dbdata:
+    driver: local

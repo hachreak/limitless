@@ -1,5 +1,5 @@
 %%% @author Leonardo Rossi <leonardo.rossi@studenti.unipr.it>
-%%% @copyright (C) 2016 Leonardo Rossi
+%%% @copyright (C) 2017 Leonardo Rossi
 %%%
 %%% This software is free software; you can redistribute it and/or
 %%% modify it under the terms of the GNU General Public License as
@@ -15,10 +15,10 @@
 %%% along with this software; if not, write to the Free Software Foundation,
 %%% Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 %%%
-%%% @doc limitless API Backend MongoDB (mongopool)
+%%% @doc limitless API Backend miniDB
 %%% @end
 
--module(limitless_backend_mongopool).
+-module(limitless_backend_minidb).
 
 -author('Leonardo Rossi <leonardo.rossi@studenti.unipr.it>').
 
@@ -38,7 +38,7 @@
 
 %% Types
 
--type appctx()    :: #{pool => atom(), table => atom()}.
+-type appctx()    :: #{}.
 -type id()        :: limitless_backend:id().
 -type limit()     :: limitless_backend:limit().
 -type objectid()  :: limitless_backend:objectid().
@@ -54,66 +54,51 @@ handle_next_id(_) ->
   {ok, Id}.
 
 -spec handle_create(limit(), appctx()) -> {ok, limit()} | {error, term()}.
-handle_create(Limit, #{pool := Pool, table := Table}) ->
-  mongopool_app:insert(Pool, Table, Limit),
+handle_create(#{<<"_id">> := Id}=Limit, _AppCtx) ->
+  minidb:put(Id, Limit),
   {ok, Limit}.
 
 -spec handle_init(proplist()) -> {ok, appctx()}.
-handle_init(Configs) ->
-  application:ensure_all_started(mongopool),
-  Pool = limitless_utils:get_or_fail(pool, Configs),
-  Table = proplists:get_value(table, Configs, limitless),
-  {ok, #{pool => Pool, table => Table}}.
+handle_init(_Configs) ->
+  application:ensure_all_started(minidb),
+  {ok, #{}}.
 
 -spec handle_delete(id(), appctx()) -> ok | {error, term()}.
-handle_delete(Id, #{pool := Pool, table := Table}) ->
-  mongopool_app:delete(Pool, Table, #{<<"_id">> => Id}),
+handle_delete(Id, _AppCtx) ->
+  minidb:delete(Id),
   ok.
 
 -spec handle_drop(appctx()) -> ok | {error, term()}.
-handle_drop(#{pool := Pool, table := Table}) ->
-  mongopool_app:delete(Pool, Table, #{}),
+handle_drop(_AppCtx) ->
+  minidb:drop(),
   ok.
 
 -spec handle_bulk_read(objectid(), appctx()) -> list(limit()).
-handle_bulk_read(ObjectId, AppCtx) ->
-  get({'$and', [
-       {<<"objectid">>, {'$eq', ObjectId}}
-    ]}, AppCtx).
+handle_bulk_read(ObjectId, _AppCtx) ->
+  minidb:find([{<<"objectid">>, {'$eq', ObjectId}}]).
 
 -spec handle_bulk_read(objectid(), operator(), timestamp(), appctx()) ->
     list(limit()).
-handle_bulk_read(ObjectId, Operator, Expiry, AppCtx) ->
-  get({'$and', [
-       {<<"objectid">>, {'$eq', ObjectId}},
-       {<<"expiry">>, {Operator, Expiry}}
-    ]}, AppCtx).
+handle_bulk_read(ObjectId, Operator, Expiry, _AppCtx) ->
+  minidb:find([
+    {<<"objectid">>, {'$eq', ObjectId}},
+    {<<"expiry">>, {Operator, Expiry}}
+  ]).
 
 % @doc decrement counter: add a new record {id, when}
 % @end
 -spec handle_dec(objectid(), appctx()) -> ok.
-handle_dec(ObjectId, #{pool := Pool, table := Table}=AppCtx) ->
+handle_dec(ObjectId, AppCtx) ->
   lists:foreach(fun(#{<<"_id">> := Id}) ->
-      mongopool_app:update(
-        Pool, Table, #{<<"_id">> => Id},
-        {<<"$inc">>, #{<<"current">> => -1}})
+      minidb:inc(Id, [{<<"current">>, -1}])
     end, handle_bulk_read(ObjectId, AppCtx)),
   ok.
 
 % @doc Manually expiry old row than 'when'
 % @end
 -spec handle_reset(id(), timestamp(), non_neg_integer(), appctx()) -> ok.
-handle_reset(Id, Expiry, Current, #{pool := Pool, table := Table}) ->
-  mongopool_app:update(
-    Pool, Table, #{<<"_id">> => Id},
-    {<<"$set">>, #{<<"expiry">> => Expiry, <<"current">> => Current}}),
+handle_reset(Id, Expiry, Current, _AppCtx) ->
+  minidb:patch(Id, #{<<"expiry">> => Expiry, <<"current">> => Current}),
   ok.
 
 %% Private functions
-
--spec get(tuple(), appctx()) -> list(limit()).
-get(Query, #{pool := Pool, table := Table}) ->
-  Cursor = mongopool_app:find(Pool, Table, Query),
-  Limits = mc_cursor:take(Cursor, infinity),
-  mc_cursor:close(Cursor),
-  Limits.

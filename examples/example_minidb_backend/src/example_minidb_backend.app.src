@@ -1,0 +1,19 @@
+{application, example_minidb_backend,
+ [{description, "An OTP application"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {mod, {example_minidb_backend_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    cowboy,
+    limitless,
+    minidb
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {maintainers, []},
+  {licenses, []},
+  {links, []}
+ ]}.

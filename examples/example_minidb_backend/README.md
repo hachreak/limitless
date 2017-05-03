@@ -55,7 +55,7 @@ You will see a response like:
 
 If you try to use any other token different from the tokens configured
 (in the demo, only `token1` and `token2`), e.g. `token3`, then you'll
-receive a `403 Unauthorized` error:
+receive a `401 Unauthorized` error:
 
 ```
   $ curl http://127.0.0.1:8080/?token=token3 --verbose

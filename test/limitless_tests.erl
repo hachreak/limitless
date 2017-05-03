@@ -388,17 +388,6 @@ is_reached_many_objectids_test_() ->
     end
   }.
 
-next_id_test() ->
-  BackendCtx = #{backend => limitless_backend_mongopool, backendctx => bar},
-  AppCtx = #{ctx => BackendCtx, limits => mylist},
-  Ids = lists:map(fun(_) ->
-      {ok, Id} = limitless:next_id(AppCtx),
-      Id
-    end, lists:seq(1, 100)),
-  ?assertEqual(
-    erlang:length(Ids),
-    erlang:length(sets:to_list(sets:from_list(Ids)))).
-
 %% Private functions
 
 check_limit(Limit, Type, ObjectId, Frequency, MaxRequests) ->

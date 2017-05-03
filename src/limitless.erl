@@ -26,7 +26,6 @@
   init/0,
   is_reached/2,
   is_reached_multiple/2,
-  next_id/1,
   setup/3
 ]).
 
@@ -34,7 +33,6 @@
 
 -type appctx()       :: #{ctx => ctx(), limits => list()}.
 -type ctx()          :: limitless_backend:ctx().
--type id()           :: limitless_backend:id().
 -type limit()        :: limitless_backend:limit().
 -type limit_extra()  :: {boolean(), objectid(), limits_info()}.
 -type limits_extra() :: list(limit_extra()).
@@ -75,10 +73,6 @@ is_reached_multiple(ObjectIds, #{ctx := Ctx}=AppCtx) ->
     end, InfoObjects),
   IsReached = ConsumedIds == [],
   {IsReached, ConsumedIds, InfoObjects}.
-
--spec next_id(appctx()) -> {ok, id()} | {error, term()}.
-next_id(#{ctx := Ctx}) ->
-  limitless_backend:next_id(Ctx).
 
 % @doc Setup limmits from configuration: initialize in database.
 % @end

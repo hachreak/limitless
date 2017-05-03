@@ -21,7 +21,7 @@ Add `limitless` to your `rebar.config` deps:
  [
   {limitless, "",
    {git, "https://github.com/rpt/limitless.git",
-    {tag, "v1.0.0"}}}
+    {tag, "v1.1.0"}}}
  ]}.
 ```
 

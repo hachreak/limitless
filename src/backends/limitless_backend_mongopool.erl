@@ -30,7 +30,6 @@
   handle_create/2,
   handle_delete/2,
   handle_drop/1,
-  handle_next_id/1,
   handle_dec/2,
   handle_init/1,
   handle_reset/4
@@ -47,11 +46,6 @@
 -type timestamp() :: limitless_backend:timestamp().
 
 %% API
-
--spec handle_next_id(appctx()) -> {ok, id()} | {error, term()}.
-handle_next_id(_) ->
-  Id = list_to_binary(uuid:to_string(uuid:uuid4())),
-  {ok, Id}.
 
 -spec handle_create(limit(), appctx()) -> {ok, limit()} | {error, term()}.
 handle_create(Limit, #{pool := Pool, table := Table}) ->

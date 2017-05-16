@@ -122,7 +122,13 @@ setup_test_() ->
           % check
           [Limit1, Limit2] = limitless_backend:bulk_read(ObjectId, Ctx),
           check_limit(Limit1, <<"User-Daily">>, ObjectId, 86400, 5000),
-          check_limit(Limit2, <<"User-15min">>, ObjectId, 54000, 1000)
+          check_limit(Limit2, <<"User-15min">>, ObjectId, 54000, 1000),
+          Ids = [maps:get(<<"_id">>, Limit1), maps:get(<<"_id">>, Limit2)],
+          ?assertEqual(true, lists:member(<<"pippo_user_User-15min">>, Ids)),
+          ?assertEqual(true, lists:member(<<"pippo_user_User-Daily">>, Ids)),
+          % check it's not creating duplicates
+          limitless:setup(ObjectId, Group, AppCtx),
+          [Limit1, Limit2] = limitless_backend:bulk_read(ObjectId, Ctx)
         end
       ]
     end

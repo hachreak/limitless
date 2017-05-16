@@ -260,16 +260,6 @@ reset_expired_test_() ->
     end
   }.
 
-next_id_test() ->
-  Ctx = #{backend => limitless_backend_mongopool, backendctx => bar},
-  Ids = lists:map(fun(_) ->
-                      {ok, Id} = limitless_backend:next_id(Ctx),
-                      Id
-                  end, lists:seq(1, 100)),
-  ?assertEqual(
-    erlang:length(Ids),
-    erlang:length(sets:to_list(sets:from_list(Ids)))).
-
 extra_info_test_() ->
   {setup,
     fun mongo_start/0,

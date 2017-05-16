@@ -79,11 +79,12 @@ is_reached_multiple(ObjectIds, #{ctx := Ctx}=AppCtx) ->
 -spec setup(objectid(), atom(), appctx()) ->
     list({ok, limit()} | {error, term()}).
 setup(ObjectId, Group, #{ctx := Ctx, limits := LimitsConfig}) ->
+  PrefixId = prefix_id(ObjectId, Group),
   lists:map(fun(Config) ->
       Type = limitless_utils:get_or_fail(type, Config),
       Frequency = limitless_utils:get_or_fail(frequency, Config),
       Requests = limitless_utils:get_or_fail(requests, Config),
-      {ok, Id} = limitless_backend:next_id(Ctx),
+      Id = << PrefixId/binary, Type/binary >>,
       limitless_backend:create(
         Type, Id, ObjectId, Frequency, Requests, Ctx)
     end, proplists:get_value(Group, LimitsConfig)).
@@ -91,6 +92,11 @@ setup(ObjectId, Group, #{ctx := Ctx, limits := LimitsConfig}) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+-spec prefix_id(objectid(), atom()) -> binary().
+prefix_id(ObjectId, Group) ->
+  GroupBinary = list_to_binary(atom_to_list(Group)),
+  << ObjectId/binary, <<"_">>/binary, GroupBinary/binary, <<"_">>/binary >>.
 
 -spec get_consumables(list(objectid()), appctx()) ->
     list({boolean(), objectid(), limits_info()}).

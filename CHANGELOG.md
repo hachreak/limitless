@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0
+
+  - Removes `next_id()` from backend behaviour and generate it in a way to
+    avoid duplicates.
+
 ## 1.1.0
 
   - Adds MiniDB backend.

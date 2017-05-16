@@ -33,7 +33,6 @@
   dec/2,
   init/1,
   is_reached/2,
-  next_id/1,
   reset_expired/2
 ]).
 
@@ -74,8 +73,6 @@
 
 -callback handle_init(proplist()) -> {ok, ctx()}.
 
--callback handle_next_id(ctx()) -> {ok, id()} | {error, term()}.
-
 -callback handle_reset(id(), timestamp(), non_neg_integer(), ctx()) -> ok.
 
 %% API
@@ -86,10 +83,6 @@ init(BackendConfig) ->
   Configs = limitless_utils:get_or_fail(config, BackendConfig),
   {ok, BackendCtx} = Backend:handle_init(Configs),
   {ok, #{backend => Backend, backendctx => BackendCtx}}.
-
--spec next_id(ctx()) -> {ok, id()} | {error, term()}.
-next_id(#{backend := Backend, backendctx := BackendCtx}) ->
-  Backend:handle_next_id(BackendCtx).
 
 -spec create(binary(), id(), objectid(), non_neg_integer(),
              non_neg_integer(), ctx()) -> {ok, limit()} | {error, term()}.
